@@ -28,6 +28,10 @@ object Expr {
     ("S", List("f", "g", "x"), EAp(EAp(EVar("f"), EVar("x")), EAp(EVar("g"), EVar("x")))),
     ("compose", List("f", "g", "x"), EAp(EVar("f"), EAp(EVar("g"), EVar("x")))),
     ("twice", List("f"), EAp(EAp(EVar("compose"), EVar("f")), EVar("f"))))
+    
+  val mapTest : CoreProgram = List(
+      ("map", List("f"), ELam(List("x"), ECase(EVar("x"), List((1, Nil, EConstr(1, 0)), 
+          (2, List("xs"), EAp(EAp(EConstr(2, 2), EAp(EVar("f"), EVar("x"))), EAp(EAp(EVar("map"), EVar("f")), EVar("xs")))))))))
 }
 
 import Expr._
