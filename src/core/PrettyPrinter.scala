@@ -28,11 +28,10 @@ object PrettyPrinter {
     case ELet(isRec, defns, e) => iConcat(List(
       iStr(if (isRec) "letrec" else "let"), iNewline,
       pprDefns(defns).indent, iNewline,
-      iStr("in "), pprExpr(expr)))
+      iStr("in "), pprExpr(e)))
     case ECase(expr, alts) => iConcat(List(
-      iStr("case "), pprExpr(expr), iStr(" of"), iNewline,
-      iInterleave(iStr(";") ++ iNewline,
-        alts.map(pprAlt)).indent))
+      iStr("case "), pprExpr(expr), iStr(" of"), 
+      iInterleave(iStr(";"), alts.map(pprAlt)).indent))
     case ELam(vs, body) => iConcat(List(
       iStr("\\ "), iInterleave(iStr(" "), vs.map(iStr)),
       iStr(" . "), pprExpr(body)))
@@ -48,10 +47,10 @@ object PrettyPrinter {
     iInterleave(iStr(";") ++ iNewline, defns.map(pprDefn))
 
   def pprDefn(defn : CoreDefn) : ISeq =
-    iStr(defn._1 + " ") ++ pprExpr(defn._2).indent
+    iStr(defn._1 + " = ") ++ pprExpr(defn._2)
 
   def pprAlt(alt : (Int, List[String], CoreExpr)) : ISeq =
-    iConcat(List(iStr("<"), iStr(alt._1.toString), iStr("> "),
+    iConcat(List(iNewline, iStr("<"), iStr(alt._1.toString), iStr("> "),
       iInterleave(iStr(" "), alt._2.map(iStr)), iStr(" -> "), pprExpr(alt._3)))
 
 }
