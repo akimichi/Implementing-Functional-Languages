@@ -9,6 +9,7 @@ import ISeq.iStr
 import ISeq.iNewline
 import ISeq.iConcat
 import ISeq.iInterleave
+import ISeq.iNum
 
 object PrettyPrinter {
 
@@ -22,7 +23,7 @@ object PrettyPrinter {
     iStr(" = "), pprExpr(scdefn._3).indent))
 
   def pprExpr(expr : CoreExpr) : ISeq = expr match {
-    case ENum(n)     => iStr(n.toString)
+    case ENum(n)     => iNum(n)
     case EVar(v)     => iStr(v)
     case EAp(e1, e2) => pprExpr(e1) ++ iStr(" ") ++ pprAExpr(e2)
     case ELet(isRec, defns, e) => iConcat(List(
@@ -36,7 +37,7 @@ object PrettyPrinter {
       iStr("\\ "), iInterleave(iStr(" "), vs.map(iStr)),
       iStr(" . "), pprExpr(body)))
     case EConstr(tag, arity) => iConcat(List(iStr("Pack{"),
-      iStr(tag.toString), iStr(","), iStr(arity.toString), iStr("}")))
+      iNum(tag), iStr(","), iNum(arity), iStr("}")))
   }
 
   def pprAExpr(e : CoreExpr) : ISeq =
@@ -50,7 +51,7 @@ object PrettyPrinter {
     iStr(defn._1 + " = ") ++ pprExpr(defn._2)
 
   def pprAlt(alt : (Int, List[String], CoreExpr)) : ISeq =
-    iConcat(List(iNewline, iStr("<"), iStr(alt._1.toString), iStr("> "),
+    iConcat(List(iNewline, iStr("<"), iNum(alt._1), iStr("> "),
       iInterleave(iStr(" "), alt._2.map(iStr)), iStr(" -> "), pprExpr(alt._3)))
 
 }

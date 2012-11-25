@@ -8,8 +8,12 @@ object ISeq {
   def iConcat(s : List[ISeq]) : ISeq = s.fold(iNil)(_ ++ _)
   def iInterleave(sep : ISeq, s : List[ISeq]) : ISeq =
     if (s.isEmpty) INil else s.tail.fold(s.head)(_ ++ sep ++ _)
-
-  def flatten(seqs : List[(ISeq, Int)]) : String = seqs match {
+  def iNum(n : Int) : ISeq = iStr(n.toString)
+  def iFWNum(width : Int, n : Int) : ISeq = iStr((for (i <- 0 until width - n.toString.length) yield ' ').mkString ++ n.toString)
+  def iLayn(seqs : List[ISeq]) : ISeq =
+    iConcat((for (i <- 0 until seqs.length) yield iConcat(List(iFWNum(4, i + 1), iStr(") "), seqs(i).indent, iNewline))).toList)
+    
+  private def flatten(seqs : List[(ISeq, Int)]) : String = seqs match {
     case Nil                        => ""
     case (INil, n) :: seqs          => flatten(seqs)
     case (IStr(s), n) :: seqs       => s + flatten(seqs)
