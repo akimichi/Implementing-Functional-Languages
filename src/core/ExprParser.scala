@@ -34,7 +34,7 @@ object ExprParser {
   def pSC : Parser[CoreScDefn] =
     pVar.thenTup(pVar.*).thenK(pLit("=")).thenTup(pExpr).apply({ case ((v, xs), e) => (v, xs, e) })
 
-  def pExpr : Parser[CoreExpr] = pLet || pCase || pLambda || pEVar || pENum || pPack || pParen
+  def pExpr : Parser[CoreExpr] = pLet || pCase || pLambda || pAExpr || pAppl
 
   def pLet : Parser[CoreExpr] =
     (pLit("let").apply(_ => false) || pLit("letrec").apply(_ => true)).
@@ -43,6 +43,17 @@ object ExprParser {
   def pCase : Parser[CoreExpr] = pLit("case").thenK1(pExpr).thenK(pLit("of")).thenTup(pAlts).apply({ case (e, alts) => ECase(e, alts) })
 
   def pLambda : Parser[CoreExpr] = pLit("\\").thenK1(pVar.+).thenK(pLit(".")).thenTup(pExpr).apply({ case (vars, e) => ELam(vars, e) })
+
+  def pAExpr : Parser[CoreExpr] = pEVar || pENum || pPack || pParen
+
+  def pAppl : Parser[CoreExpr] = pAExpr.+.apply(mkApChain)
+
+  def mkApChain(es : List[CoreExpr]) : CoreExpr = es match {
+    case Nil             => throw new Exception("+ should not return nil!")
+    case e1 :: Nil       => e1
+    case e1 :: e2 :: Nil => EAp(e1, e2)
+    case e1 :: e2 :: es  => EAp(EAp(e1, e2), mkApChain(es))
+  }
 
   def pEVar : Parser[CoreExpr] = pVar.apply(x => EVar(x))
 
@@ -60,6 +71,7 @@ object ExprParser {
   def pAlt : Parser[CoreAlt] =
     pLit("<").thenK1(pNum).thenK(pLit(">")).thenTup(pVar.*).thenK(pLit("->")).thenTup(pExpr).apply({ case ((n, vars), e) => (n, vars, e) })
 
-  def pVar : Parser[String] = pSat(tok => (tok.head.isLetter || tok.head == '_') && !keywords.contains(tok)).apply(_ mkString)
+  def pVar : Parser[String] =
+    pSat(tok => (tok.head.isLetter || tok.head == '_' || builtinOps.contains(tok)) && !keywords.contains(tok)).apply(_ mkString)
 
 }
