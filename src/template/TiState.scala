@@ -8,33 +8,47 @@ import utils.Heap.hNull
 
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
 
-  def eval : List[TiState] = {
+  def eval : List[TiState] =
     if (isFinal)
       List(this)
     else
       this :: this.step.doAdmin.eval
-  }
 
   def doAdmin : TiState = new TiState(stack, dump, heap, globals, stats.incSteps)
 
   def isFinal : Boolean = stack match {
     case Nil         => throw new Exception("empty stack")
-    case addr :: Nil => heap.lookup(addr).isDataNode
+    case addr :: Nil => heap.lookup(addr).isDataNode && dump.isEmpty
     case _           => false
   }
 
-  def step : TiState = heap.lookup(stack.head) match {
-    case NNum(n)   => throw new Exception("number applied as function")
-    case NAp(a, b) => new TiState(a :: stack, dump, heap, globals, stats)
-    case NSupercomb(name, args, body) => {
-      val argBindings = args.zip(getArgs)
-      if (argBindings.length < args.length) throw new Exception("supercombinator " + name + "applied to too few arguments")
-      val env = globals ++ argBindings
-      val newHeap = instantiateAndUpdate(body, heap, env, stack(args.length))
-      val newStack = stack.drop(args.length)
-      new TiState(newStack, dump, newHeap, globals, stats)
+  def step : TiState = stack match {
+    case Nil      => throw new Exception("empty stack")
+    case s :: Nil if heap.lookup(s).isDataNode => new TiState(dump.head, dump.tail, heap, globals, stats)
+    case s :: ss => heap.lookup(s) match {
+      case NNum(n) => throw new Exception("number applied as function")
+      case NAp(a, b) => heap.lookup(b) match {
+        case NInd(b2) => {
+          val newHeap = heap.update(s)(NAp(a, b2))
+          new TiState(stack, dump, newHeap, globals, stats)
+        }
+        case _ => new TiState(a :: stack, dump, heap, globals, stats)
+      }
+      case NSupercomb(name, args, body) => {
+        val argBindings = args.zip(getArgs)
+        if (argBindings.length < args.length) throw new Exception("supercombinator " + name + "applied to too few arguments")
+        val env = globals ++ argBindings
+        val newHeap = instantiateAndUpdate(body, heap, env, stack(args.length))
+        val newStack = stack.drop(args.length)
+        new TiState(newStack, dump, newHeap, globals, stats)
+      }
+      case NInd(a)       => new TiState(a :: stack.tail, dump, heap, globals, stats)
+      case NPrim(_, Neg) => primNeg
+      case NPrim(_, Add) => primArith(x => y => x + y)
+      case NPrim(_, Sub) => primArith(x => y => x + y)
+      case NPrim(_, Mul) => primArith(x => y => x + y)
+      case NPrim(_, Div) => primArith(x => y => x + y)
     }
-    case NInd(a) => new TiState(a :: stack.tail, dump, heap, globals, stats)
   }
 
   //Used only with a supercombinator atop stack
@@ -73,7 +87,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     val (newHeap, newAddr) = instantiate(defn._2, oldHeap, oldEnv)
     (newHeap, oldEnv + (defn._1 -> newAddr))
   }
-  
+
   def allocateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
     val (oldHeap, oldEnv) = heapEnv
     val (newHeap, newAddr) = oldHeap.alloc(NInd(hNull))
@@ -108,6 +122,20 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case ECase(e, alts) => throw new Exception("can't update to case exprs")
   }
 
+  def primNeg : TiState = {
+    val argAddr = getArgs(0)
+    val argNode = heap.lookup(argAddr)
+    argNode match {
+      case NNum(n) => {
+        val newHeap = heap.update(stack(1))(NNum(-n))
+        new TiState(stack.tail, dump, newHeap, globals, stats)
+      }
+      case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
+    }
+  }
+
+  def primArith(op : Int => Int => Int) : TiState = throw new Exception("TODO")
+  
   def showState : String = showStack + '\n'
 
   def showStack : String = {
@@ -130,5 +158,5 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
   def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Total heap allocation = " + heap.size
 
   def printHeap : String = heap.addresses.map(a => a + " = " + showStackNode(heap.lookup(a))).mkString
-  
+
 }

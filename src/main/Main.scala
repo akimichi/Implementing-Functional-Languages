@@ -17,6 +17,9 @@ object Main {
     		" f x y = letrec a = pair x b ; b = pair y a in fst (snd (snd (snd a)));" +
     		"main = f 3 4"))
     println(run("main = twice twice twice I 3"))
+    println(run("main = neg 3"))
+    println(run("main = twice neg 3"))
+    println(run("main = neg (I 3)"))
   }
 
 }
