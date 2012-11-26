@@ -1,7 +1,8 @@
 package core
 
 import Expr.{ CoreScDefn, CoreExpr, CoreAlt, CoreDefn, CoreProgram }
-import Parser.{ Token, pLit, pNum, pSat }
+import utils.Parser
+import utils.Parser.{ Token, pLit, pNum, pSat }
 
 object ExprParser {
 

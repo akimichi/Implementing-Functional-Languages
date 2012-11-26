@@ -1,15 +1,8 @@
 package core
 
-import Expr.CoreProgram
-import Expr.CoreExpr
-import Expr.isAtomicExpr
-import Expr.CoreDefn
-import Expr.CoreScDefn
-import ISeq.iStr
-import ISeq.iNewline
-import ISeq.iConcat
-import ISeq.iInterleave
-import ISeq.iNum
+import Expr.{ isAtomicExpr, CoreScDefn, CoreProgram, CoreExpr, CoreDefn }
+import utils.ISeq.{ iStr, iNum, iNewline, iInterleave, iConcat }
+import utils.ISeq
 
 object PrettyPrinter {
 
@@ -31,7 +24,7 @@ object PrettyPrinter {
       pprDefns(defns).indent, iNewline,
       iStr("in "), pprExpr(e)))
     case ECase(expr, alts) => iConcat(List(
-      iStr("case "), pprExpr(expr), iStr(" of"), 
+      iStr("case "), pprExpr(expr), iStr(" of"),
       iInterleave(iStr(";"), alts.map(pprAlt)).indent))
     case ELam(vs, body) => iConcat(List(
       iStr("\\ "), iInterleave(iStr(" "), vs.map(iStr)),

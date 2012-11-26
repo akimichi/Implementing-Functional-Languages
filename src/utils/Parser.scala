@@ -1,6 +1,5 @@
-package core
+package utils
 
-import Expr.{ CoreProgram, CoreScDefn, CoreExpr, CoreDefn, CoreAlt }
 import Parser.{ Token, pEmpty, cons }
 
 object Parser {
