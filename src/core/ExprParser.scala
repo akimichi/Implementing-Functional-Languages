@@ -47,14 +47,7 @@ object ExprParser {
 
   def pAExpr : Parser[CoreExpr] = pEVar || pENum || pPack || pParen
 
-  def pAppl : Parser[CoreExpr] = pAExpr.+.apply(mkApChain)
-
-  def mkApChain(es : List[CoreExpr]) : CoreExpr = es match {
-    case Nil             => throw new Exception("+ should not return nil!")
-    case e1 :: Nil       => e1
-    case e1 :: e2 :: Nil => EAp(e1, e2)
-    case e1 :: e2 :: es  => EAp(EAp(e1, e2), mkApChain(es))
-  }
+  def pAppl : Parser[CoreExpr] = pAExpr.+.apply(es => es.tail.foldLeft(es.head)({ case (e1, e2) => EAp(e1, e2) }))
 
   def pEVar : Parser[CoreExpr] = pVar.apply(x => EVar(x))
 

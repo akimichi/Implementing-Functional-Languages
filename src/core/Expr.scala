@@ -24,7 +24,7 @@ object Expr {
   val preludeDefs : CoreProgram = List(
     ("I", List("x"), EVar("x")),
     ("K", List("x", "y"), EVar("x")),
-    ("K", List("x", "y"), EVar("y")),
+    ("K1", List("x", "y"), EVar("y")),
     ("S", List("f", "g", "x"), EAp(EAp(EVar("f"), EVar("x")), EAp(EVar("g"), EVar("x")))),
     ("compose", List("f", "g", "x"), EAp(EVar("f"), EAp(EVar("g"), EVar("x")))),
     ("twice", List("f"), EAp(EAp(EVar("compose"), EVar("f")), EVar("f"))))
