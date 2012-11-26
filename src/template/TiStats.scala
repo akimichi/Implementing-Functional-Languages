@@ -2,7 +2,7 @@ package template
 
 object TiStats {
   
-  def tiStatsInitial = new TiStats(0)
+  val tiStatsInitial = new TiStats(0)
   
 }
 
