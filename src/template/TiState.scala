@@ -8,14 +8,11 @@ import utils.{ ISeq, Addr }
 
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
 
-  def eval : List[TiState] = {
-    println(TemplateInstantiator.showResults(List(this)))
-    heap.addresses.foreach(x => println(x + ">" + showNode(heap.lookup(x)).display))
+  def eval : List[TiState] =
     if (isFinal)
       List(this)
     else
       this :: this.step.doAdmin.eval
-  }
 
   def doAdmin : TiState = new TiState(stack, dump, heap, globals, stats.incSteps)
 
@@ -63,7 +60,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
 
   def showStack : ISeq = {
     def showStackItem(addr : Addr) : ISeq = iConcat(List(addr.showFW, iStr(": "), showStackNode(heap.lookup(addr))))
-    iConcat(List(iStr("Stk ["), iInterleave(iNewline, stack.map(showStackItem)).indent, iStr("]")))
+    iConcat(List(iStr("Stk ["), (iNewline ++ iInterleave(iNewline, stack.map(showStackItem))).indent, iStr("]")))
   }
 
   def showStackNode(node : Node) : ISeq = node match {
@@ -77,5 +74,6 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NNum(n)                => iStr("NNum " + n)
   }
 
-  def showStats : ISeq = iConcat(List(iNewline, iNewline, iStr("Total number of steps = "), iNum(stats.getSteps)))
+  def showStats : ISeq = iConcat(List(iStr("Total number of steps = "), iNum(stats.getSteps), iNewline, iNewline))
+
 }

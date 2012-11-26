@@ -11,8 +11,8 @@ object Main {
     println("Runs!")
     println(pprint(preludeDefs))
     println(pprint(mapTest))
-    println
     println(run("main = S K K 3"))
+    println(run("main = f j K 3; f x g n = x (g n); j n = n 4"))
   }
 
 }
