@@ -1,7 +1,7 @@
 package template
 
 import TemplateInstantiator.{ TiStack, TiHeap, TiGlobals, TiDump }
-import core.Expr.CoreExpr
+import core.Expr.{ CoreExpr, CoreDefn }
 import core.{ EVar, ENum, ELet, EConstr, ECase, EAp }
 import utils.ISeq.{ iStr, iNum, iNewline, iInterleave, iConcat }
 import utils.{ ISeq, Addr }
@@ -27,6 +27,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NAp(a, b) => new TiState(a :: stack, dump, heap, globals, stats)
     case NSupercomb(name, args, body) => {
       val argBindings = args.zip(getArgs)
+      if (argBindings.length < args.length) throw new Exception("supercombinator " + name + "applied to too few arguments")
       val env = globals ++ argBindings
       val (newHeap, resultAddr) = instantiate(body, heap, env)
       val newStack = resultAddr :: stack.drop(args.length + 1)
@@ -52,8 +53,23 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
     case EVar(v)                 => (heap, env.getOrElse(v, throw new Exception("unidentified var " + v)))
     case EConstr(tag, arity)     => throw new Exception("can't instantiate constructors yet")
-    case ELet(isrec, defs, body) => throw new Exception("can't instantiate let(rec)s yet")
+    case ELet(false, defs, body) => {
+      val (newHeap, bindings) = defs.foldLeft((heap, env))(instantiateBody)
+      val newEnv = env ++ bindings
+      instantiate(body, newHeap, newEnv)
+    }
+    case ELet(true, defs, body)  => {
+      def newHeapEnv : (TiHeap, Map[String, Addr]) = defs.foldLeft((heap, newEnv))(instantiateBody)
+      def newEnv = env ++ newHeapEnv._2
+      instantiate(body, newHeapEnv._1, newEnv)
+    }
     case ECase(e, alts)          => throw new Exception("can't instantiate case exprs")
+  }
+  
+  def instantiateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
+    val (oldHeap, oldEnv) = heapEnv
+    val (newHeap, newAddr) = instantiate(defn._2, oldHeap, oldEnv)
+    (newHeap, oldEnv + (defn._1 -> newAddr))
   }
 
   def showState : ISeq = iConcat(List(showStack, iNewline))
