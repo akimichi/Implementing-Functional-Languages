@@ -9,9 +9,9 @@ object ISeq {
   def iInterleave(sep : ISeq, s : List[ISeq]) : ISeq =
     if (s.isEmpty) INil else s.tail.fold(s.head)(_ ++ sep ++ _)
   def iNum(n : Int) : ISeq = iStr(n.toString)
-  def iFWNum(width : Int, n : Int) : ISeq = iStr((for (i <- 0 until width - n.toString.length) yield ' ').mkString ++ n.toString)
+  def iFW(width : Int, n : Any) : ISeq = iStr((for (i <- 0 until width - n.toString.length) yield ' ').mkString ++ n.toString)
   def iLayn(seqs : List[ISeq]) : ISeq =
-    iConcat((for (i <- 0 until seqs.length) yield iConcat(List(iFWNum(4, i + 1), iStr(") "), seqs(i).indent, iNewline))).toList)
+    iConcat((for (i <- 0 until seqs.length) yield iConcat(List(iFW(4, i + 1), iStr(") "), seqs(i).indent, iNewline))).toList)
     
   private def flatten(seqs : List[(ISeq, Int)]) : String = seqs match {
     case Nil                        => ""

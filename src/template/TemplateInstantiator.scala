@@ -6,10 +6,10 @@ import utils.Addr
 import utils.Heap
 import utils.Heap.hInitial
 import TiStats.tiStatsInitial
+import utils.ISeq.{ iConcat, iLayn }
 
 object TemplateInstantiator {
 
-  type TiState = (TiStack, TiDump, TiHeap, TiGlobals, TiStats)
   type TiStack = List[Addr]
   type TiHeap = Heap[Node]
   type TiGlobals = Map[String, Addr]
@@ -17,15 +17,14 @@ object TemplateInstantiator {
   sealed abstract class TiDump
   val initialTiDump = null
 
-  def run(prog : String) : String = showResults(eval(compile(parse(prog))))
+  def run(prog : String) : String = showResults(compile(parse(prog)).eval)
 
   def compile(prog : CoreProgram) : TiState = {
     val scdefs = prog ++ preludeDefs ++ extraPreludeDefs
-
     val (initialHeap, globals) = buildInitialHeap(scdefs)
     val addressOfMain = globals.getOrElse("main", throw new Exception("main is not defined"))
     val initialStack = List(addressOfMain)
-    (initialStack, initialTiDump, initialHeap, globals, tiStatsInitial)
+    new TiState(initialStack, initialTiDump, initialHeap, globals, tiStatsInitial)
   }
 
   def buildInitialHeap(prog : CoreProgram) : (TiHeap, TiGlobals) = innerBIH(prog, hInitial)
@@ -43,9 +42,7 @@ object TemplateInstantiator {
     (heapp, (sc._1, addr))
   }
 
-  def eval(state : TiState) : List[TiState] = throw new Exception
-
-  def showResults(trace : List[TiState]) : String = throw new Exception
+  def showResults(trace : List[TiState]) : String = iConcat(List(iLayn(trace.map(_ showState)), trace.last.showStats)).display
 
   val extraPreludeDefs : List[CoreScDefn] = Nil
 
