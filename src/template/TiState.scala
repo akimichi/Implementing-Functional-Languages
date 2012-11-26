@@ -3,8 +3,7 @@ package template
 import TemplateInstantiator.{ TiStack, TiHeap, TiGlobals, TiDump }
 import core.Expr.{ CoreExpr, CoreDefn }
 import core.{ EVar, ENum, ELet, EConstr, ECase, EAp }
-import utils.ISeq.{ iStr, iNum, iNewline, iInterleave, iConcat }
-import utils.{ ISeq, Addr }
+import utils.Addr
 import utils.Heap.hNull
 
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
@@ -31,8 +30,9 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       if (argBindings.length < args.length) throw new Exception("supercombinator " + name + "applied to too few arguments")
       val env = globals ++ argBindings
       val (newHeap, resultAddr) = instantiate(body, heap, env)
+      val newHeap2 = newHeap.update(stack(args.length))(NInd(resultAddr))
       val newStack = resultAddr :: stack.drop(args.length + 1)
-      new TiState(newStack, dump, newHeap, globals, stats)
+      new TiState(newStack, dump, newHeap2, globals, stats)
     }
     case NInd(a) => new TiState(a :: stack.tail, dump, heap, globals, stats)
   }
@@ -82,11 +82,12 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
 
   def updateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
     val (oldHeap, env) = heapEnv
-    val newHeap = update(defn._2, oldHeap, env, env.getOrElse(defn._1, throw new Exception("definition of " + defn._1 + "dissapeared before update")))
+    val defAddr = env.getOrElse(defn._1, throw new Exception("definition of " + defn._1 + "dissapeared before update"))
+    val newHeap = instantiateAndUpdate(defn._2, oldHeap, env, defAddr)
     (newHeap, env)
   }
 
-  def update(body : CoreExpr, heap : TiHeap, env : Map[String, Addr], a : Addr) : TiHeap = body match {
+  def instantiateAndUpdate(body : CoreExpr, heap : TiHeap, env : Map[String, Addr], a : Addr) : TiHeap = body match {
     case ENum(n) => heap.update(a)(NNum(n))
     case EAp(e1, e2) => {
       val (heap1, a1) = instantiate(e1, heap, env)
@@ -98,36 +99,36 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case ELet(false, defs, body) => {
       val (heap1, env1) = defs.foldLeft((heap, env))(instantiateBody)
       val (heap2, addr) = instantiate(body, heap1, env1)
-      heap.update(a)(NInd(addr))
+      heap2.update(a)(NInd(addr))
     }
     case ELet(true, defs, body) => {
       val heapEnv = defs.foldLeft((heap, env))(allocateBody)
       val (heap1, env1) = defs.foldLeft(heapEnv)(instantiateBody)
       val (heap2, addr) = instantiate(body, heap1, env1)
-      heap.update(a)(NInd(addr))
+      heap2.update(a)(NInd(addr))
     }
     case ECase(e, alts) => throw new Exception("can't update to case exprs")
   }
 
-  def showState : ISeq = iConcat(List(showStack, iNewline))
+  def showState : String = showStack + '\n'
 
-  def showStack : ISeq = {
-    def showStackItem(addr : Addr) : ISeq = iConcat(List(addr.showFW, iStr(": "), showStackNode(heap.lookup(addr))))
-    iConcat(List(iStr("Stk ["), (iNewline ++ iInterleave(iNewline, stack.map(showStackItem))).indent, iStr("]")))
+  def showStack : String = {
+    def showStackItem(addr : Addr) : String = "   " + addr.showFW + ": " + showStackNode(heap.lookup(addr)) + "\n"
+    "Stk [\n" + stack.map(showStackItem).mkString + " ]"
   }
 
-  def showStackNode(node : Node) : ISeq = node match {
-    case NAp(fun, arg) => iConcat(List(iStr("NAp "), fun.showFW, iStr(" "), arg.showFW, iStr(" ("), showNode(heap.lookup(arg)), iStr(")")))
+  def showStackNode(node : Node) : String = node match {
+    case NAp(fun, arg) => "NAp " + fun.showFW + " " + arg.showFW + " (" + showNode(heap.lookup(arg)) + ")"
     case node          => showNode(node)
   }
 
-  def showNode(node : Node) : ISeq = node match {
-    case NAp(a1, a2)            => iConcat(List(iStr("NAp "), a1.show, iStr(" "), a2.show))
-    case NSupercomb(name, _, _) => iStr("NSupercomb " + name)
-    case NNum(n)                => iStr("NNum " + n)
-    case NInd(a)                => iStr("NInd " + a)
+  def showNode(node : Node) : String = node match {
+    case NAp(a1, a2)            => "NAp " + a1 + " " + a2
+    case NSupercomb(name, _, _) => "NSupercomb " + name
+    case NNum(n)                => "NNum " + n
+    case NInd(a)                => "NInd " + a
   }
 
-  def showStats : ISeq = iConcat(List(iStr("Total number of steps = "), iNum(stats.getSteps), iNewline, iNewline))
+  def showStats : String = "Total number of steps = " + stats.getSteps + '\n'
 
 }

@@ -16,6 +16,7 @@ object Main {
     println(run("pair x y f = f x y ; fst p = p K ; snd p = p K1 ;" +
     		" f x y = letrec a = pair x b ; b = pair y a in fst (snd (snd (snd a)));" +
     		"main = f 3 4"))
+    println(run("id x = x; main = twice twice twice id 3"))
   }
 
 }

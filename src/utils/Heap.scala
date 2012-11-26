@@ -1,14 +1,13 @@
 package utils
 
-import ISeq.{ iStr, iFW }
+import ISeq.iFW
 
 case class Addr protected[utils] (protected[utils] val i : Int) {
   
   def isNull : Boolean = i == 0
   override def toString : String = "#" + i
   
-  def show : ISeq = iStr(this.toString)
-  def showFW : ISeq = iFW(4, this)
+  def showFW : String = iFW(4, this).display
   
 }
 

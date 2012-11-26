@@ -6,7 +6,7 @@ import utils.Addr
 import utils.Heap
 import utils.Heap.hInitial
 import TiStats.tiStatsInitial
-import utils.ISeq.{ iConcat, iLayn }
+import utils.ISeq.{ iConcat, iLayn, iStr }
 
 object TemplateInstantiator {
 
@@ -42,7 +42,7 @@ object TemplateInstantiator {
     (heapp, (sc._1, addr))
   }
 
-  def showResults(trace : List[TiState]) : String = iConcat(List(iLayn(trace.map(_ showState)), trace.last.showStats)).display
+  def showResults(trace : List[TiState]) : String = iLayn(trace.map(x => iStr(x.showState))).display + trace.last.showStats
 
   val extraPreludeDefs : List[CoreScDefn] = Nil
 
