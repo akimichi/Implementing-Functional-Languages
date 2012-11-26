@@ -47,7 +47,7 @@ object ExprParser {
 
   def pAExpr : Parser[CoreExpr] = pEVar || pENum || pPack || pParen
 
-  def pAppl : Parser[CoreExpr] = pAExpr.+.apply(es => es.tail.foldLeft(es.head)({ case (e1, e2) => EAp(e1, e2) }))
+  def pAppl : Parser[CoreExpr] = pAExpr.+.apply(es => es.reduceLeft[CoreExpr]({ case (e1, e2) => EAp(e1, e2) }))
 
   def pEVar : Parser[CoreExpr] = pVar.apply(x => EVar(x))
 

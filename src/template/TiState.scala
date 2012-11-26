@@ -5,6 +5,7 @@ import core.Expr.{ CoreExpr, CoreDefn }
 import core.{ EVar, ENum, ELet, EConstr, ECase, EAp }
 import utils.ISeq.{ iStr, iNum, iNewline, iInterleave, iConcat }
 import utils.{ ISeq, Addr }
+import utils.Heap.hNull
 
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
 
@@ -33,6 +34,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       val newStack = resultAddr :: stack.drop(args.length + 1)
       new TiState(newStack, dump, newHeap, globals, stats)
     }
+    case NInd(a) => new TiState(a :: stack.tail, dump, heap, globals, stats)
   }
 
   //Used only with a supercombinator atop stack
@@ -51,25 +53,60 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       val (heap2, a2) = instantiate(e2, heap1, env)
       heap2.alloc(NAp(a1, a2))
     }
-    case EVar(v)                 => (heap, env.getOrElse(v, throw new Exception("unidentified var " + v)))
-    case EConstr(tag, arity)     => throw new Exception("can't instantiate constructors yet")
+    case EVar(v)             => (heap, env.getOrElse(v, throw new Exception("unidentified var " + v)))
+    case EConstr(tag, arity) => throw new Exception("can't instantiate constructors yet")
     case ELet(false, defs, body) => {
       val (newHeap, bindings) = defs.foldLeft((heap, env))(instantiateBody)
       val newEnv = env ++ bindings
       instantiate(body, newHeap, newEnv)
     }
-    case ELet(true, defs, body)  => {
-      def newHeapEnv : (TiHeap, Map[String, Addr]) = defs.foldLeft((heap, newEnv))(instantiateBody)
-      def newEnv = env ++ newHeapEnv._2
-      instantiate(body, newHeapEnv._1, newEnv)
+    case ELet(true, defs, body) => {
+      val heapEnv = defs.foldLeft((heap, env))(allocateBody)
+      val (newHeap, newEnv) = defs.foldLeft(heapEnv)(updateBody)
+      instantiate(body, newHeap, newEnv)
     }
-    case ECase(e, alts)          => throw new Exception("can't instantiate case exprs")
+    case ECase(e, alts) => throw new Exception("can't instantiate case exprs")
   }
-  
+
   def instantiateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
     val (oldHeap, oldEnv) = heapEnv
     val (newHeap, newAddr) = instantiate(defn._2, oldHeap, oldEnv)
     (newHeap, oldEnv + (defn._1 -> newAddr))
+  }
+  
+  def allocateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
+    val (oldHeap, oldEnv) = heapEnv
+    val (newHeap, newAddr) = oldHeap.alloc(NInd(hNull))
+    (newHeap, oldEnv + (defn._1 -> newAddr))
+  }
+
+  def updateBody(heapEnv : (TiHeap, Map[String, Addr]), defn : CoreDefn) : (TiHeap, Map[String, Addr]) = {
+    val (oldHeap, env) = heapEnv
+    val newHeap = update(defn._2, oldHeap, env, env.getOrElse(defn._1, throw new Exception("definition of " + defn._1 + "dissapeared before update")))
+    (newHeap, env)
+  }
+
+  def update(body : CoreExpr, heap : TiHeap, env : Map[String, Addr], a : Addr) : TiHeap = body match {
+    case ENum(n) => heap.update(a)(NNum(n))
+    case EAp(e1, e2) => {
+      val (heap1, a1) = instantiate(e1, heap, env)
+      val (heap2, a2) = instantiate(e2, heap1, env)
+      heap2.update(a)(NAp(a1, a2))
+    }
+    case EVar(v)             => heap.update(a)(NInd(env.getOrElse(v, throw new Exception("unidentified var " + v))))
+    case EConstr(tag, arity) => throw new Exception("can't update to constructors yet")
+    case ELet(false, defs, body) => {
+      val (heap1, env1) = defs.foldLeft((heap, env))(instantiateBody)
+      val (heap2, addr) = instantiate(body, heap1, env1)
+      heap.update(a)(NInd(addr))
+    }
+    case ELet(true, defs, body) => {
+      val heapEnv = defs.foldLeft((heap, env))(allocateBody)
+      val (heap1, env1) = defs.foldLeft(heapEnv)(instantiateBody)
+      val (heap2, addr) = instantiate(body, heap1, env1)
+      heap.update(a)(NInd(addr))
+    }
+    case ECase(e, alts) => throw new Exception("can't update to case exprs")
   }
 
   def showState : ISeq = iConcat(List(showStack, iNewline))
@@ -88,6 +125,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NAp(a1, a2)            => iConcat(List(iStr("NAp "), a1.show, iStr(" "), a2.show))
     case NSupercomb(name, _, _) => iStr("NSupercomb " + name)
     case NNum(n)                => iStr("NNum " + n)
+    case NInd(a)                => iStr("NInd " + a)
   }
 
   def showStats : ISeq = iConcat(List(iStr("Total number of steps = "), iNum(stats.getSteps), iNewline, iNewline))
