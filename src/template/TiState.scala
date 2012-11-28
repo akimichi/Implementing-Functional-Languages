@@ -23,7 +23,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
   }
 
   def step : TiState = stack match {
-    case Nil      => throw new Exception("empty stack")
+    case Nil                                   => throw new Exception("empty stack")
     case s :: Nil if heap.lookup(s).isDataNode => new TiState(dump.head, dump.tail, heap, globals, stats)
     case s :: ss => heap.lookup(s) match {
       case NNum(n) => throw new Exception("number applied as function")
@@ -45,9 +45,9 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       case NInd(a)       => new TiState(a :: stack.tail, dump, heap, globals, stats)
       case NPrim(_, Neg) => primNeg
       case NPrim(_, Add) => primArith(x => y => x + y)
-      case NPrim(_, Sub) => primArith(x => y => x + y)
-      case NPrim(_, Mul) => primArith(x => y => x + y)
-      case NPrim(_, Div) => primArith(x => y => x + y)
+      case NPrim(_, Sub) => primArith(x => y => x - y)
+      case NPrim(_, Mul) => primArith(x => y => x * y)
+      case NPrim(_, Div) => primArith(x => y => x / y)
     }
   }
 
@@ -134,8 +134,25 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
   }
 
-  def primArith(op : Int => Int => Int) : TiState = throw new Exception("TODO")
-  
+  def primArith(op : Int => Int => Int) : TiState = {
+    val argAddr = getArgs(0)
+    val argNode = heap.lookup(argAddr)
+    argNode match {
+      case NNum(n) => {
+        val argAddr2 = getArgs(1)
+        val argNode2 = heap.lookup(argAddr2)
+        argNode2 match {
+          case NNum(n2) => {
+            val newHeap = heap.update(stack(2))(NNum(op(n)(n2)))
+            new TiState(stack.tail.tail, dump, newHeap, globals, stats)
+          }
+          case _ => new TiState(argAddr2 :: Nil, stack.tail.tail :: dump, heap, globals, stats)
+        }
+      }
+      case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
+    }
+  }
+
   def showState : String = showStack + '\n'
 
   def showStack : String = {
@@ -153,6 +170,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NSupercomb(name, _, _) => "NSupercomb " + name
     case NNum(n)                => "NNum " + n
     case NInd(a)                => "NInd " + a
+    case NPrim(n, p)            => "NPrim " + n
   }
 
   def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Total heap allocation = " + heap.size
