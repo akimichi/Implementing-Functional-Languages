@@ -26,6 +26,6 @@ class Heap[A] private (val size : Int, unused : Stream[Int], map : Map[Addr, A])
   def update(at : Addr)(a : A) : Heap[A] = new Heap(size, unused, map + (at -> a))
   def free(at : Addr) : Heap[A] = new Heap(size - 1, at.i #:: unused, map - at)
   def lookup(at : Addr) : A = map.getOrElse(at, throw new Exception("Cannot find node " + at + " in heap"))
-  def addresses : List[Addr] = map.keySet.toList
+  def addresses : List[Addr] = map.keySet.toList.sortBy(_ i)
   
 }

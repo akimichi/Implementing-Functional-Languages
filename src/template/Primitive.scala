@@ -14,7 +14,8 @@ object Primitive {
     ("<" -> Less),
     ("<=" -> LessEq),
     ("==" -> Eq),
-    ("/=" -> NEq))
+    ("/=" -> NEq),
+    ("casePair" -> PrimCasePair))
 
 }
 
@@ -33,4 +34,4 @@ case object Less extends Primitive
 case object LessEq extends Primitive
 case object Eq extends Primitive
 case object NEq extends Primitive
-
+case object PrimCasePair extends Primitive

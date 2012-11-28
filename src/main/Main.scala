@@ -26,6 +26,9 @@ object Main {
     println(run("main = if (< 4 3) 4 5"))
     println(run("main = if (not (< 4 3)) 4 5"))
     println(run("fact n = if (== n 0) 1 (* n (fact (- n 1))) ; main = fact 4"))
+    println(run("main = snd (MkPair 4 5)"))
+    println(run("main = fst (MkPair (+ 1 2) 4)"))
+    println(run("main = fst (snd (fst (MkPair (MkPair 1 (MkPair 2 3)) 4)))"))
   }
 
 }

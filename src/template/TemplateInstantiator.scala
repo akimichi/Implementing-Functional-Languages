@@ -64,10 +64,13 @@ object TemplateInstantiator {
   val extraPreludeDefs : List[CoreScDefn] = List(
     ("True", Nil, EConstr(1, 0)),
     ("False", Nil, EConstr(2, 0)),
+    ("MkPair", Nil, EConstr(1, 2)),
     parseSC("and x y = if x y False"),
     parseSC("or x y = if x True y"),
     parseSC("not x = if x False True"),
-    parseSC("xor x y = if x (not y) y")
+    parseSC("xor x y = if x (not y) y"),
+    parseSC("fst p = casePair p K"),
+    parseSC("snd p = casePair p K1")
       )
   
 

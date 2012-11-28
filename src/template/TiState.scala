@@ -60,6 +60,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       case NPrim(_, LessEq)           => primArith(x => y => boolify(x <= y))
       case NPrim(_, Eq)               => primArith(x => y => boolify(x == y))
       case NPrim(_, NEq)              => primArith(x => y => boolify(x != y))
+      case NPrim(_, PrimCasePair)     => primCasePair
     }
   }
 
@@ -158,7 +159,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
         argNode2 match {
           case NNum(n2) => {
             val newHeap = heap.update(stack(2))(op(n)(n2))
-            new TiState(stack.tail.tail, dump, newHeap, globals, stats)
+            new TiState(stack.drop(2), dump, newHeap, globals, stats)
           }
           case _ => new TiState(argAddr2 :: Nil, stack.tail.tail :: dump, heap, globals, stats)
         }
@@ -187,6 +188,21 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     val newHeap = heap.update(stack(arity))(NData(tag, getArgs.take(arity)))
     new TiState(stack.drop(arity), dump, newHeap, globals, stats)
   }
+  
+  def primCasePair : TiState = {
+    val argAddr = getArgs(0)
+    val argNode = heap.lookup(argAddr)
+    argNode match {
+      case NData(1, List(fst, snd)) => {
+        val fAddr = getArgs(1)
+        val (heap1, inAddr) = heap.alloc(NAp(fAddr, fst))
+        val heap2 = heap1.update(stack(2))(NAp(inAddr, snd))
+        new TiState(stack.drop(2), dump, heap2, globals, stats)
+      }
+      case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
+    }
+  }
+
 
   def showState : String = showStack + '\n'
 
@@ -206,7 +222,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NNum(n)                => "NNum " + n
     case NInd(a)                => "NInd " + a
     case NPrim(n, p)            => "NPrim " + n
-    case NData(t, a)            => "NData " + t
+    case NData(t, a)            => "NData " + t + a.map(d => " " + d.toString).mkString
   }
 
   def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Total heap allocation = " + heap.size
