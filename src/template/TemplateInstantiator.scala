@@ -1,13 +1,14 @@
 package template
 
 import core.Expr.{ CoreProgram, CoreScDefn, preludeDefs }
-import core.ExprParser.parse
+import core.ExprParser.{ parse, parseSC }
 import utils.Addr
 import utils.Heap
 import utils.Heap.hInitial
 import TiStats.tiStatsInitial
 import utils.ISeq.{ iConcat, iLayn, iStr }
 import Primitive.primitives
+import core.EConstr
 
 object TemplateInstantiator {
 
@@ -60,6 +61,14 @@ object TemplateInstantiator {
 //    iLayn(trace.map(x => iStr(x.showState))).display + 
     trace.last.showStack + trace.last.showStats
 
-  val extraPreludeDefs : List[CoreScDefn] = Nil
+  val extraPreludeDefs : List[CoreScDefn] = List(
+    ("True", Nil, EConstr(1, 0)),
+    ("False", Nil, EConstr(2, 0)),
+    parseSC("and x y = if x y False"),
+    parseSC("or x y = if x True y"),
+    parseSC("not x = if x False True"),
+    parseSC("xor x y = if x (not y) y")
+      )
+  
 
 }

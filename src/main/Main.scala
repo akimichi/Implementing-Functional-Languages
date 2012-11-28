@@ -21,7 +21,11 @@ object Main {
     println(run("main = neg (I 3)"))
     println(run("main = + 3 4"))
     println(run("main = * 2 (+ 3 4)"))
-
+    println(run("main = >= 3 3"))
+    println(run("main = if True 4 5"))
+    println(run("main = if (< 4 3) 4 5"))
+    println(run("main = if (not (< 4 3)) 4 5"))
+    println(run("fact n = if (== n 0) 1 (* n (fact (- n 1))) ; main = fact 4"))
   }
 
 }

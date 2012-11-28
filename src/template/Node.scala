@@ -10,3 +10,4 @@ case class NSupercomb(name : String, vars : List[String], body : CoreExpr) exten
 case class NNum(i : Int) extends Node(true)
 case class NInd(a : Addr) extends Node(false)
 case class NPrim(n : String, p : Primitive) extends Node(false)
+case class NData(tag : Int, c : List[Addr]) extends Node(true)

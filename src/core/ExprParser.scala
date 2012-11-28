@@ -8,6 +8,8 @@ object ExprParser {
 
   def parse(in : String) : CoreProgram = firstFullParse(pProgram.run(tokenize(in.toList)))
 
+  def parseSC(in : String) : CoreScDefn = firstFullParse(pSC.run(tokenize(in.toList)))
+  
   def firstFullParse[A](parses : List[(A, List[Token])]) : A = parses match {
     case Nil                => throw new Exception("no full parse!")
     case (a, Nil) :: parses => a

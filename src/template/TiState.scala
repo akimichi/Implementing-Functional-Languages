@@ -8,11 +8,14 @@ import utils.Heap.hNull
 
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
 
-  def eval : List[TiState] =
+  def eval : List[TiState] = {
+//    println(stack.head)
+//    println(printHeap)
     if (isFinal)
       List(this)
     else
       this :: this.step.doAdmin.eval
+  }
 
   def doAdmin : TiState = new TiState(stack, dump, heap, globals, stats.incSteps)
 
@@ -26,7 +29,8 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case Nil                                   => throw new Exception("empty stack")
     case s :: Nil if heap.lookup(s).isDataNode => new TiState(dump.head, dump.tail, heap, globals, stats)
     case s :: ss => heap.lookup(s) match {
-      case NNum(n) => throw new Exception("number applied as function")
+      case NNum(n)     => throw new Exception("number applied as function")
+      case NData(t, a) => throw new Exception("data object applied as function")
       case NAp(a, b) => heap.lookup(b) match {
         case NInd(b2) => {
           val newHeap = heap.update(s)(NAp(a, b2))
@@ -42,14 +46,24 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
         val newStack = stack.drop(args.length)
         new TiState(newStack, dump, newHeap, globals, stats)
       }
-      case NInd(a)       => new TiState(a :: stack.tail, dump, heap, globals, stats)
-      case NPrim(_, Neg) => primNeg
-      case NPrim(_, Add) => primArith(x => y => x + y)
-      case NPrim(_, Sub) => primArith(x => y => x - y)
-      case NPrim(_, Mul) => primArith(x => y => x * y)
-      case NPrim(_, Div) => primArith(x => y => x / y)
+      case NInd(a)                    => new TiState(a :: stack.tail, dump, heap, globals, stats)
+      case NPrim(_, Neg)              => primNeg
+      case NPrim(_, Add)              => primArith(x => y => NNum(x + y))
+      case NPrim(_, Sub)              => primArith(x => y => NNum(x - y))
+      case NPrim(_, Mul)              => primArith(x => y => NNum(x * y))
+      case NPrim(_, Div)              => primArith(x => y => NNum(x / y))
+      case NPrim(_, PrimConstr(n, a)) => primConstr(n, a)
+      case NPrim(_, If)               => primIf
+      case NPrim(_, Greater)          => primArith(x => y => boolify(x > y))
+      case NPrim(_, GreaterEq)        => primArith(x => y => boolify(x >= y))
+      case NPrim(_, Less)             => primArith(x => y => boolify(x < y))
+      case NPrim(_, LessEq)           => primArith(x => y => boolify(x <= y))
+      case NPrim(_, Eq)               => primArith(x => y => boolify(x == y))
+      case NPrim(_, NEq)              => primArith(x => y => boolify(x != y))
     }
   }
+
+  def boolify(b : Boolean) : Node = if (b) NData(1, Nil) else NData(2, Nil)
 
   //Used only with a supercombinator atop stack
   def getArgs : List[Addr] = {
@@ -68,7 +82,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       heap2.alloc(NAp(a1, a2))
     }
     case EVar(v)             => (heap, env.getOrElse(v, throw new Exception("unidentified var " + v)))
-    case EConstr(tag, arity) => throw new Exception("can't instantiate constructors yet")
+    case EConstr(tag, arity) => heap.alloc(NPrim("Pack", PrimConstr(tag, arity)))
     case ELet(false, defs, body) => {
       val (newHeap, bindings) = defs.foldLeft((heap, env))(instantiateBody)
       val newEnv = env ++ bindings
@@ -109,7 +123,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       heap2.update(a)(NAp(a1, a2))
     }
     case EVar(v)             => heap.update(a)(NInd(env.getOrElse(v, throw new Exception("unidentified var " + v))))
-    case EConstr(tag, arity) => throw new Exception("can't update to constructors yet")
+    case EConstr(tag, arity) => heap.update(a)(NPrim("Pack", PrimConstr(tag, arity)))
     case ELet(false, defs, body) => {
       val (heap1, env1) = defs.foldLeft((heap, env))(instantiateBody)
       instantiateAndUpdate(body, heap1, env1, a)
@@ -134,7 +148,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
   }
 
-  def primArith(op : Int => Int => Int) : TiState = {
+  def primArith(op : Int => Int => Node) : TiState = {
     val argAddr = getArgs(0)
     val argNode = heap.lookup(argAddr)
     argNode match {
@@ -143,7 +157,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
         val argNode2 = heap.lookup(argAddr2)
         argNode2 match {
           case NNum(n2) => {
-            val newHeap = heap.update(stack(2))(NNum(op(n)(n2)))
+            val newHeap = heap.update(stack(2))(op(n)(n2))
             new TiState(stack.tail.tail, dump, newHeap, globals, stats)
           }
           case _ => new TiState(argAddr2 :: Nil, stack.tail.tail :: dump, heap, globals, stats)
@@ -151,6 +165,27 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       }
       case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
     }
+  }
+
+  def primIf : TiState = {
+    val argAddr = getArgs(0)
+    val argNode = heap.lookup(argAddr)
+    argNode match {
+      case NData(1, Nil) => {
+        val newHeap = heap.update(stack(3))(NInd(getArgs(1)))
+        new TiState(stack.drop(3), dump, newHeap, globals, stats)
+      }
+      case NData(2, Nil) => {
+        val newHeap = heap.update(stack(3))(NInd(getArgs(2)))
+        new TiState(stack.drop(3), dump, newHeap, globals, stats)
+      }
+      case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
+    }
+  }
+  
+  def primConstr(tag : Int, arity : Int) : TiState = {
+    val newHeap = heap.update(stack(arity))(NData(tag, getArgs.take(arity)))
+    new TiState(stack.drop(arity), dump, newHeap, globals, stats)
   }
 
   def showState : String = showStack + '\n'
@@ -171,6 +206,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NNum(n)                => "NNum " + n
     case NInd(a)                => "NInd " + a
     case NPrim(n, p)            => "NPrim " + n
+    case NData(t, a)            => "NData " + t
   }
 
   def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Total heap allocation = " + heap.size
