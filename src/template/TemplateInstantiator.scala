@@ -65,12 +65,16 @@ object TemplateInstantiator {
     ("True", Nil, EConstr(1, 0)),
     ("False", Nil, EConstr(2, 0)),
     ("MkPair", Nil, EConstr(1, 2)),
+    ("Nil", Nil, EConstr(1, 0)),
+    ("Cons", Nil, EConstr(2, 2)),
     parseSC("and x y = if x y False"),
     parseSC("or x y = if x True y"),
     parseSC("not x = if x False True"),
     parseSC("xor x y = if x (not y) y"),
     parseSC("fst p = casePair p K"),
-    parseSC("snd p = casePair p K1")
+    parseSC("snd p = casePair p K1"),
+    parseSC("head l = caseList l abort K"),
+    parseSC("tail l = caseList l abort K1")
       )
   
 

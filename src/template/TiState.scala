@@ -9,8 +9,8 @@ import utils.Heap.hNull
 class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals, stats : TiStats) {
 
   def eval : List[TiState] = {
-//    println(stack.head)
-//    println(printHeap)
+    //    println(stack.head)
+    //    println(printHeap)
     if (isFinal)
       List(this)
     else
@@ -61,6 +61,8 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       case NPrim(_, Eq)               => primArith(x => y => boolify(x == y))
       case NPrim(_, NEq)              => primArith(x => y => boolify(x != y))
       case NPrim(_, PrimCasePair)     => primCasePair
+      case NPrim(_, PrimCaseList)     => primCaseList
+      case NPrim(_, Abort)            => throw new Exception("Core language abort!")
     }
   }
 
@@ -183,12 +185,12 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
     }
   }
-  
+
   def primConstr(tag : Int, arity : Int) : TiState = {
     val newHeap = heap.update(stack(arity))(NData(tag, getArgs.take(arity)))
     new TiState(stack.drop(arity), dump, newHeap, globals, stats)
   }
-  
+
   def primCasePair : TiState = {
     val argAddr = getArgs(0)
     val argNode = heap.lookup(argAddr)
@@ -203,6 +205,23 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
   }
 
+  def primCaseList : TiState = {
+    val argAddr = getArgs(0)
+    val argNode = heap.lookup(argAddr)
+    argNode match {
+      case NData(1, Nil) => {
+        val newHeap = heap.update(stack(3))(NInd(getArgs(1)))
+        new TiState(stack.drop(3), dump, newHeap, globals, stats)
+      }
+      case NData(2, List(fst, snd)) => {
+        val fAddr = getArgs(2)
+        val (heap1, inAddr) = heap.alloc(NAp(fAddr, fst))
+        val heap2 = heap1.update(stack(3))(NAp(inAddr, snd))
+        new TiState(stack.drop(3), dump, heap2, globals, stats)
+      }
+      case _ => new TiState(argAddr :: Nil, stack.tail :: dump, heap, globals, stats)
+    }
+  }
 
   def showState : String = showStack + '\n'
 

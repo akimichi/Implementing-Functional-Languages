@@ -29,6 +29,10 @@ object Main {
     println(run("main = snd (MkPair 4 5)"))
     println(run("main = fst (MkPair (+ 1 2) 4)"))
     println(run("main = fst (snd (fst (MkPair (MkPair 1 (MkPair 2 3)) 4)))"))
+    println(run("main = (Cons 2 Nil)"))
+    println(run("sublength x xs = + 1 (length xs); length l = caseList l 0 sublength; main = length (Cons 3 (Cons True (Cons 4 Nil)))"))
+    println(run("main = head (Cons 2 Nil)"))
+    println(run("main = tail (Cons 2 Nil)"))
   }
 
 }
