@@ -228,19 +228,60 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
   }
 
-  def garbageCollect : TiState = new TiState(stack, dump, scanHeap(findRoots.foldLeft(heap)(markFrom)), globals, stats)
+  def garbageCollect : TiState = {
+    val (stackHeap, newStack) = markFromList(heap, stack)
+    val (dumpHeap, newDump) = markFromDump(stackHeap)
+    val (globalsHeap, newGlobals) = markFromGlobals(dumpHeap)
+    val cleanHeap = scanHeap(globalsHeap)
+    new TiState(newStack, newDump, cleanHeap, newGlobals, stats)
+  }
 
-  def findRoots : List[Addr] = stack ++ dump.flatten ++ globals.values.toList
+  def markFromGlobals(heap : TiHeap) : (TiHeap, Map[String, Addr]) = markFromGlobals(heap, globals, globals.keySet.toList)
+  def markFromGlobals(heap : TiHeap, as : Map[String, Addr], unmarked : List[String]) : (TiHeap, Map[String, Addr]) =
+    unmarked match {
+      case Nil => (heap, as)
+      case g :: gs => {
+        val (newHeap, a) = markFrom(heap, as(g))
+        markFromGlobals(newHeap, as + (g -> a), gs)
+      }
+    }
 
-  def markFrom(heap : TiHeap, a : Addr) : TiHeap = {
+  def markFromDump(heap : TiHeap) : (TiHeap, List[List[Addr]]) = markFromDump(heap, dump, Nil)
+  def markFromDump(heap : TiHeap, as : List[List[Addr]], newAs : List[List[Addr]]) : (TiHeap, List[List[Addr]]) =
+    as match {
+      case Nil => (heap, newAs.reverse)
+      case a :: as2 => {
+        val (newHeap, a2) = markFromList(heap, a)
+        markFromDump(newHeap, as2, a2 :: newAs)
+      }
+    }
+
+  def markFromList(heap : TiHeap, as : List[Addr]) : (TiHeap, List[Addr]) = markFromList(heap, as, Nil)
+  def markFromList(heap : TiHeap, as : List[Addr], newAs : List[Addr]) : (TiHeap, List[Addr]) =
+    as match {
+      case Nil => (heap, newAs.reverse)
+      case a :: as2 => {
+        val (newHeap, a2) = markFrom(heap, a)
+        markFromList(newHeap, as2, a2 :: newAs)
+      }
+    }
+
+  def markFrom(heap : TiHeap, a : Addr) : (TiHeap, Addr) = {
     val node = heap.lookup(a)
     val newHeap = heap.update(a)(NMarked(node))
     node match {
-      case NAp(a1, a2)                                 => markFrom(markFrom(newHeap, a1), a2)
-      case NInd(a1)                                    => markFrom(newHeap, a1)
-      case NData(_, as)                                => as.foldLeft(newHeap)(markFrom)
-      case NMarked(_)                                  => heap //Not newHeap, to prevent eternal indirection
-      case NPrim(_, _) | NSupercomb(_, _, _) | NNum(_) => newHeap
+      case NAp(a1, a2) => {
+        val (heap1, a12) = markFrom(newHeap, a1)
+        val (heap2, a22) = markFrom(heap1, a2)
+        (heap2.update(a)(NMarked(NAp(a12, a22))), a)
+      }
+      case NInd(a1) => markFrom(heap, a1) //not newHeap to short-circuit indirections
+      case NData(t, as) => {
+        val (heap2, newAs) = markFromList(newHeap, as)
+        (heap2.update(a)(NMarked(NData(t, newAs))), a)
+      }
+      case NMarked(_)                                  => (heap, a) //not newHeap, to prevent eternal indirection
+      case NPrim(_, _) | NSupercomb(_, _, _) | NNum(_) => (newHeap, a)
     }
   }
 
@@ -274,7 +315,10 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NMarked(n)             => throw new Exception("found gc-marked node")
   }
 
-  def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap
+  def showStats : String =
+    "Total number of steps = " + stats.getSteps + '\n' +
+      "Final heap allocation = " + heap.size + '\n' +
+      "Max heap allocation = " + stats.maxHeap
 
   def printHeap : String = heap.addresses.map(a => a + " = " + showStackNode(heap.lookup(a))).mkString
 
