@@ -49,7 +49,7 @@ object GMachine {
     case n :: ns => mapify(ns, from + 1) + (n -> from)
   }
 
-  def compileR(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = compileC(e, env) ++ List(Slide(env.size + 1), Unwind)
+  def compileR(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = compileC(e, env) ++ List(Update(env.size), Pop(env.size), Unwind)
 
   def compileC(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = e match {
     case ENum(n)               => List(PushInt(n))
@@ -69,13 +69,13 @@ object GMachine {
   def showResults(trace : List[GMState]) : String = 
     "Supercombinator definitions \n" + trace.last.globals.map(showSC(trace.last)) + "State transitions \n" + trace.map(showState) + trace.last.showStats
 
-  def showSC(s : GMState)(g : (String, Addr)) : String = {
+  def showSC(s : GMState)(g : (String, Addr)) : String =
     s.heap.lookup(g._2) match {
       case NGlobal(arity, code) => g._1 + " = " + code + '\n'
       case NNum(n) => ""
-      case _ => throw new Exception("globals contains a non-supercombinator, non-constant")
+      case NInd(a) => showSC(s)((g._1, a))
+      case NAp(a1, a2) => throw new Exception("globals contains an application node")
     }
-  }
   
   def showState(s : GMState) : String = s.showStack + s.showInstructions + '\n'
      

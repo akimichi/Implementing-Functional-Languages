@@ -38,19 +38,24 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
       val NAp(a1, a2) = heap.lookup(stack(n + 1))
       new GMState(is, a2 :: stack, heap, globals, stats)
     }
-    case Slide(n) :: is => new GMState(is, stack.head :: stack.drop(n + 1), heap, globals, stats)
+    case Update(n) :: is => {
+      val newHeap = heap.update(stack(n + 1))(NInd(stack.head))
+      new GMState(is, stack.tail, newHeap, globals, stats)
+    }
+    case Pop(n) :: is => new GMState(is, stack.drop(n), heap, globals, stats)
     case Unwind :: is => heap.lookup(stack.head) match {
       case NNum(n)                            => new GMState(Nil, stack, heap, globals, stats)
       case NAp(a1, a2)                        => new GMState(List(Unwind), a1 :: stack, heap, globals, stats)
       case NGlobal(n, c) if stack.length <= n => throw new Exception("unwinding with too few arguments")
       case NGlobal(n, c)                      => new GMState(c, stack, heap, globals, stats)
+      case NInd(a)                            => new GMState(List(Unwind), a :: stack.tail, heap, globals, stats)
     }
   }
 
-  def showStack : String = (for (s <- stack) yield s + " ").mkString + '\n' 
-  
-  def showInstructions : String = (for (i <- code) yield i + " ").mkString + '\n' 
-  
-  def showStats : String = 
+  def showStack : String = (for (s <- stack) yield s + " ").mkString + '\n'
+
+  def showInstructions : String = (for (i <- code) yield i + " ").mkString + '\n'
+
+  def showStats : String =
     "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap
 }
