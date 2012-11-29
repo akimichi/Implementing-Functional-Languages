@@ -27,14 +27,16 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
       val (newHeap, a) = heap.alloc(NAp(stack(0), stack(1)))
       new GMState(is, a :: stack.drop(2), newHeap, globals, stats)
     }
-    case PushInt(n) :: is => {
-      val (newHeap, a) = heap.alloc(NNum(n))
-      new GMState(is, a :: stack, newHeap, globals, stats)
-    }
+    case PushInt(n) :: is =>
+      if (globals.contains(n.toString))
+        new GMState(is, globals(n.toString) :: stack, heap, globals, stats)
+      else {
+        val (newHeap, a) = heap.alloc(NNum(n))
+        new GMState(is, a :: stack, newHeap, globals + (n.toString -> a), stats)
+      }
     case Push(n) :: is => {
       val NAp(a1, a2) = heap.lookup(stack(n + 1))
       new GMState(is, a2 :: stack, heap, globals, stats)
-
     }
     case Slide(n) :: is => new GMState(is, stack.head :: stack.drop(n + 1), heap, globals, stats)
     case Unwind :: is => heap.lookup(stack.head) match {

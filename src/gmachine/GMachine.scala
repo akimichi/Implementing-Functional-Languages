@@ -70,8 +70,11 @@ object GMachine {
     "Supercombinator definitions \n" + trace.last.globals.map(showSC(trace.last)) + "State transitions \n" + trace.map(showState) + trace.last.showStats
 
   def showSC(s : GMState)(g : (String, Addr)) : String = {
-    val NGlobal(arity, code) = s.heap.lookup(g._2)
-    g._1 + " = " + code + '\n'
+    s.heap.lookup(g._2) match {
+      case NGlobal(arity, code) => g._1 + " = " + code + '\n'
+      case NNum(n) => ""
+      case _ => throw new Exception("globals contains a non-supercombinator, non-constant")
+    }
   }
   
   def showState(s : GMState) : String = s.showStack + s.showInstructions + '\n'
