@@ -2,12 +2,12 @@ package template
 
 object TiStats {
   
-  val tiStatsInitial = new TiStats(0)
+  val tiStatsInitial = new TiStats(0, 0)
   
 }
 
-class TiStats private (val getSteps : Int) {
+class TiStats private (val getSteps : Int, val maxHeap : Int) {
   
-  def incSteps : TiStats = new TiStats(getSteps + 1)
+  def admin(heapSize : Int) : TiStats = new TiStats(getSteps + 1, Math.max(heapSize, maxHeap))
   
 }

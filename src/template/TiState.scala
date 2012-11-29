@@ -17,7 +17,11 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
       this :: this.step.doAdmin.eval
   }
 
-  def doAdmin : TiState = new TiState(stack, dump, heap, globals, stats.incSteps)
+  def doAdmin : TiState =
+    if (stats.getSteps % 25 == 24)
+      new TiState(stack, dump, heap, globals, stats.admin(heap.size)).garbageCollect
+    else
+      new TiState(stack, dump, heap, globals, stats.admin(heap.size))
 
   def isFinal : Boolean = stack match {
     case Nil         => throw new Exception("empty stack")
@@ -29,6 +33,7 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case Nil                                   => throw new Exception("empty stack")
     case s :: Nil if heap.lookup(s).isDataNode => new TiState(dump.head, dump.tail, heap, globals, stats)
     case s :: ss => heap.lookup(s) match {
+      case NMarked(n)  => throw new Exception("found gc-marked node")
       case NNum(n)     => throw new Exception("number applied as function")
       case NData(t, a) => throw new Exception("data object applied as function")
       case NAp(a, b) => heap.lookup(b) match {
@@ -223,6 +228,30 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     }
   }
 
+  def garbageCollect : TiState = new TiState(stack, dump, scanHeap(findRoots.foldLeft(heap)(markFrom)), globals, stats)
+
+  def findRoots : List[Addr] = stack ++ dump.flatten ++ globals.values.toList
+
+  def markFrom(heap : TiHeap, a : Addr) : TiHeap = {
+    val node = heap.lookup(a)
+    val newHeap = heap.update(a)(NMarked(node))
+    node match {
+      case NAp(a1, a2)                                 => markFrom(markFrom(newHeap, a1), a2)
+      case NInd(a1)                                    => markFrom(newHeap, a1)
+      case NData(_, as)                                => as.foldLeft(newHeap)(markFrom)
+      case NMarked(_)                                  => heap //Not newHeap, to prevent eternal indirection
+      case NPrim(_, _) | NSupercomb(_, _, _) | NNum(_) => newHeap
+    }
+  }
+
+  def scanHeap(heap : TiHeap) : TiHeap = heap.addresses.foldLeft(heap)(freeGarbage)
+
+  def freeGarbage(heap : TiHeap, a : Addr) : TiHeap =
+    heap.lookup(a) match {
+      case NMarked(n) => heap.update(a)(n)
+      case _          => heap.free(a)
+    }
+
   def showState : String = showStack + '\n'
 
   def showStack : String = {
@@ -242,9 +271,10 @@ class TiState(stack : TiStack, dump : TiDump, heap : TiHeap, globals : TiGlobals
     case NInd(a)                => "NInd " + a
     case NPrim(n, p)            => "NPrim " + n
     case NData(t, a)            => "NData " + t + a.map(d => " " + d.toString).mkString
+    case NMarked(n)             => throw new Exception("found gc-marked node")
   }
 
-  def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Total heap allocation = " + heap.size
+  def showStats : String = "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap
 
   def printHeap : String = heap.addresses.map(a => a + " = " + showStackNode(heap.lookup(a))).mkString
 
