@@ -11,11 +11,7 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
     else
       this :: this.step.doAdmin.eval
 
-  def doAdmin : GMState =
-    //    if (stats.getSteps % 25 == 24)
-    //      new GMState(code, stack, heap, globals, stats.admin(heap.size)).garbageCollect
-    //    else
-    new GMState(code, stack, heap, globals, stats.admin(heap.size))
+  def doAdmin : GMState = new GMState(code, stack, heap, globals, stats.admin(heap.size))
 
   def step : GMState = code match {
     case Nil => throw new Exception("no code found")
@@ -34,10 +30,7 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
         val (newHeap, a) = heap.alloc(NNum(n))
         new GMState(is, a :: stack, newHeap, globals + (n.toString -> a), stats)
       }
-    case Push(n) :: is => {
-      val NAp(a1, a2) = heap.lookup(stack(n + 1))
-      new GMState(is, a2 :: stack, heap, globals, stats)
-    }
+    case Push(n) :: is => new GMState(is, getArg(stack(n + 1)) :: stack, heap, globals, stats)
     case Update(n) :: is => {
       val newHeap = heap.update(stack(n + 1))(NInd(stack.head))
       new GMState(is, stack.tail, newHeap, globals, stats)
@@ -46,10 +39,14 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
     case Unwind :: is => heap.lookup(stack.head) match {
       case NNum(n)                            => new GMState(Nil, stack, heap, globals, stats)
       case NAp(a1, a2)                        => new GMState(List(Unwind), a1 :: stack, heap, globals, stats)
-      case NGlobal(n, c) if stack.length <= n => throw new Exception("unwinding with too few arguments")
       case NGlobal(n, c)                      => new GMState(c, stack, heap, globals, stats)
       case NInd(a)                            => new GMState(List(Unwind), a :: stack.tail, heap, globals, stats)
     }
+  }
+  
+  def getArg(a : Addr) : Addr = heap.lookup(a) match {
+    case NAp(a1, a2) => a2
+    case _ => throw new Exception("stack contains a non-application")
   }
 
   def showStack : String = (for (s <- stack) yield s + " ").mkString + '\n'
