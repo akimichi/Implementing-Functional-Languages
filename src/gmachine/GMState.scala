@@ -8,9 +8,9 @@ class GMState(code : List[Instruction], stack : List[Addr],
               dump : List[(List[Instruction], List[Addr])], heap : Heap[Node], globals : Map[String, Addr], stats : GMStats) {
 
   def eval : List[GMState] = {
-//    println(showStack)
-//    println(showInstructions)
-//    println("--------------------")
+//        println(showStack)
+//        println(showInstructions)
+//        println("--------------------")
     if (code.isEmpty)
       List(this)
     else
@@ -42,18 +42,20 @@ class GMState(code : List[Instruction], stack : List[Addr],
       new GMState(is, stack.tail, dump, newHeap, globals, stats)
     }
     case Pop(n) :: is => new GMState(is, stack.drop(n), dump, heap, globals, stats)
-    case Unwind :: is => heap.lookup(stack.head) match {
+    case Unwind :: Nil => heap.lookup(stack.head) match {
       case NNum(n) => dump match {
         case (dumpCode, dumpStack) :: ds => new GMState(dumpCode, stack.head :: dumpStack, ds, heap, globals, stats)
         case Nil                         => new GMState(Nil, stack, Nil, heap, globals, stats)
       }
-      case NAp(a1, a2) => new GMState(List(Unwind), a1 :: stack, dump, heap, globals, stats)
+      case NAp(a1, a2)                           => new GMState(List(Unwind), a1 :: stack, dump, heap, globals, stats)
+      case NGlobal(n, c) if stack.tail.length < n => new GMState(dump.head._1, stack.last :: dump.head._2, dump.tail, heap, globals, stats)
       case NGlobal(n, c) => {
         val newStack = stack.tail.map(getArg).take(n) ++ stack.drop(n)
         new GMState(c, newStack, dump, heap, globals, stats)
       }
       case NInd(a) => new GMState(List(Unwind), a :: stack.tail, dump, heap, globals, stats)
     }
+    case Unwind :: is => throw new Exception("unwind not last instruction")
     case Alloc(n) :: is => {
       val (newHeap, as) = allocNodes(n, heap)
       new GMState(is, as ++ stack, dump, newHeap, globals, stats)

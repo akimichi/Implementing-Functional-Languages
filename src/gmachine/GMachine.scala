@@ -54,7 +54,29 @@ object GMachine {
     case n :: ns => mapify(ns, from + 1) + (n -> from)
   }
 
-  def compileR(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = compileC(e, env) ++ List(Update(env.size), Pop(env.size), Unwind)
+  def compileR(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = compileE(e, env) ++ List(Update(env.size), Pop(env.size), Unwind)
+
+  def compileE(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = e match {
+    case ENum(n) => List(PushInt(n))
+    case EVar(v) => if (env.contains(v)) List(Push(env(v)), Eval) else List(PushGlobal(v), Eval)
+    case EAp(EVar(op), e2) if builtInUnaries.contains(op) =>
+      compileE(e2, env) ++ List(builtInUnaries(op))
+    case EAp(EAp(EVar(op), e2), e3) if builtInBinaries.contains(op) =>
+      compileE(e3, env) ++ compileE(e2, argOffset(1, env)) ++ List(builtInBinaries(op))
+    case EAp(EAp(EAp(EVar("if"), e2), e3), e4) => compileE(e2, env) ++ List(Cond(compileE(e3, env), compileE(e4, env)))
+    case EAp(e1, e2)                           => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp, Eval)
+    case ELet(false, defns, e) => {
+      val env2 = compileArgs(defns, env)
+      compileLets(defns, env) ++ compileE(e, env2) ++ List(Slide(defns.length))
+    }
+    case ELet(true, defns, e) => {
+      val env2 = compileArgs(defns, env)
+      List(Alloc(defns.length)) ++ compileLetrecs(defns, env2) ++ compileE(e, env2) ++ List(Slide(defns.length))
+    }
+    case ECase(expr, alts)   => throw new Exception("cannot compile cases yet")
+    case ELam(vs, body)      => throw new Exception("cannot compile lams yet")
+    case EConstr(tag, arity) => throw new Exception("cannot compile constrs yet")
+  }
 
   def compileC(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = e match {
     case ENum(n)     => List(PushInt(n))
@@ -92,6 +114,12 @@ object GMachine {
     //TODO eliminate
     ("True", 0, List(PushInt(1), Update(0), Pop(0), Unwind)),
     ("False", 0, List(PushInt(0), Update(0), Pop(0), Unwind)))
+
+  val builtInUnaries : Map[String, Instruction] = Map(("neg" -> Neg))
+
+  val builtInBinaries : Map[String, Instruction] = Map(
+    ("+" -> Add), ("-" -> Sub), ("*" -> Mul), ("/" -> Div), ("==" -> Eq),
+    ("!=" -> Ne), ("<" -> Lt), ("<=" -> Le), (">" -> Gt), (">=" -> Ge))
 
   val extraPreludeDefs : CoreProgram = List(
     //    ("True", Nil, EConstr(1, 0)),
