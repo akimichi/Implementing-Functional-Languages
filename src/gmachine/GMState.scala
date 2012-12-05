@@ -66,22 +66,17 @@ class GMState(code : List[Instruction], stack : List[Addr],
     }
     case Slide(n) :: is => new GMState(is, stack.head :: stack.drop(n + 1), dump, heap, globals, stats)
     case Eval :: is     => new GMState(List(Unwind), List(stack.head), (is, stack.tail) :: dump, heap, globals, stats)
-    case Add :: is      => primitive2(x => y => x + y)
-    case Sub :: is      => primitive2(x => y => x - y)
-    case Mul :: is      => primitive2(x => y => x * y)
-    case Div :: is      => primitive2(x => y => x / y)
+    case Add :: is      => primitive2n(x => y => x + y)
+    case Sub :: is      => primitive2n(x => y => x - y)
+    case Mul :: is      => primitive2n(x => y => x * y)
+    case Div :: is      => primitive2n(x => y => x / y)
     case Neg :: is      => primitive1(x => -x)
-    case Eq :: is       => primitive2(x => y => if (x == y) 1 else 0)
-    case Ne :: is       => primitive2(x => y => if (x != y) 1 else 0)
-    case Lt :: is       => primitive2(x => y => if (x < y) 1 else 0)
-    case Le :: is       => primitive2(x => y => if (x <= y) 1 else 0)
-    case Gt :: is       => primitive2(x => y => if (x > y) 1 else 0)
-    case Ge :: is       => primitive2(x => y => if (x >= y) 1 else 0)
-    case Cond(c1, c2) :: is => heap.lookup(stack.head) match {
-      case NNum(1) => new GMState(c1 ++ is, stack.tail, dump, heap, globals, stats)
-      case NNum(0) => new GMState(c2 ++ is, stack.tail, dump, heap, globals, stats)
-      case _       => throw new Exception("bad arg to cond")
-    }
+    case Eq :: is       => primitive2b(x => y => x == y)
+    case Ne :: is       => primitive2b(x => y => x != y)
+    case Lt :: is       => primitive2b(x => y => x < y)
+    case Le :: is       => primitive2b(x => y => x <= y)
+    case Gt :: is       => primitive2b(x => y => x > y)
+    case Ge :: is       => primitive2b(x => y => x >= y)
     case Pack(tag, arity) :: is => {
       val (newHeap, a) = heap.alloc(NConstr(tag, stack.take(arity)))
       new GMState(is, a :: stack.drop(arity), dump, newHeap, globals, stats)
@@ -112,6 +107,8 @@ class GMState(code : List[Instruction], stack : List[Addr],
 
   def boxInt(i : Int) : (Heap[Node], Addr) = heap.alloc(NNum(i))
 
+  def boxBool(b : Boolean) : (Heap[Node], Addr) = heap.alloc(NConstr(if (b) 1 else 2, Nil))
+  
   def unboxInt(a : Addr) : Int = heap.lookup(a) match {
     case NNum(i) => i
     case _       => throw new Exception("unboxing a non-int")
@@ -122,8 +119,13 @@ class GMState(code : List[Instruction], stack : List[Addr],
     new GMState(code.tail, a :: stack.tail, dump, newHeap, globals, stats)
   }
 
-  def primitive2(op : Int => Int => Int) : GMState = {
+  def primitive2n(op : Int => Int => Int) : GMState = {
     val (newHeap, a) = boxInt(op(unboxInt(stack.head))(unboxInt(stack.tail.head)))
+    new GMState(code.tail, a :: stack.tail.tail, dump, newHeap, globals, stats)
+  }
+  
+  def primitive2b(op : Int => Int => Boolean) : GMState = {
+    val (newHeap, a) = boxBool(op(unboxInt(stack.head))(unboxInt(stack.tail.head)))
     new GMState(code.tail, a :: stack.tail.tail, dump, newHeap, globals, stats)
   }
 

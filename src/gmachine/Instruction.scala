@@ -23,7 +23,6 @@ case object Lt extends Instruction
 case object Le extends Instruction
 case object Gt extends Instruction
 case object Ge extends Instruction
-case class Cond(c1 : List[Instruction], c2 : List[Instruction]) extends Instruction 
 case class Pack(tag : Int, arity : Int) extends Instruction
 case class CaseJump(cases : Map[Int, List[Instruction]]) extends Instruction
 case class Split(n : Int) extends Instruction

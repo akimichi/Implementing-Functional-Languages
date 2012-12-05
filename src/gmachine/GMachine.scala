@@ -63,7 +63,6 @@ object GMachine {
       compileE(e2, env) ++ List(builtInUnaries(op))
     case EAp(EAp(EVar(op), e2), e3) if builtInBinaries.contains(op) =>
       compileE(e3, env) ++ compileE(e2, argOffset(1, env)) ++ List(builtInBinaries(op))
-    case EAp(EAp(EAp(EVar("if"), e2), e3), e4) => compileE(e2, env) ++ List(Cond(compileE(e3, env), compileE(e4, env)))
 
     //TODO solve this crap
     case EConstr(tag, 0)                       => List(Pack(tag, 0))
@@ -138,12 +137,7 @@ object GMachine {
     ("<", 2, List(Push(1), Eval, Push(1), Eval, Lt, Update(2), Pop(2), Unwind)),
     ("<=", 2, List(Push(1), Eval, Push(1), Eval, Le, Update(2), Pop(2), Unwind)),
     (">", 2, List(Push(1), Eval, Push(1), Eval, Gt, Update(2), Pop(2), Unwind)),
-    (">=", 2, List(Push(1), Eval, Push(1), Eval, Ge, Update(2), Pop(2), Unwind)),
-    ("if", 3, List(Push(0), Eval, Cond(List(Push(1)), List(Push(2))), Update(3), Pop(3), Unwind)),
-
-    //TODO eliminate
-    ("True", 0, List(PushInt(1), Update(0), Pop(0), Unwind)),
-    ("False", 0, List(PushInt(0), Update(0), Pop(0), Unwind)))
+    (">=", 2, List(Push(1), Eval, Push(1), Eval, Ge, Update(2), Pop(2), Unwind)))
 
   val builtInUnaries : Map[String, Instruction] = Map(("neg" -> Neg))
 
@@ -152,8 +146,9 @@ object GMachine {
     ("!=" -> Ne), ("<" -> Lt), ("<=" -> Le), (">" -> Gt), (">=" -> Ge))
 
   val extraPreludeDefs : CoreProgram = List(
-    //    ("True", Nil, EConstr(1, 0)),
-    //    ("False", Nil, EConstr(2, 0)),
+    parseSC("True = {Pack 1, 0}"),
+    parseSC("False = {Pack 2, 0}"),
+    parseSC("if b t f = case b of <1> -> t; <2> -> f"),
     parseSC("MkPair x y = {Pack 1, 2} x y"),
     parseSC("Nil = {Pack 1, 0}"),
     parseSC("Cons x y = {Pack 2, 2} x y"),
