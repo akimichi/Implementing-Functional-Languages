@@ -1,6 +1,6 @@
 package gmachine
 
-import core.ExprParser.parse
+import core.ExprParser.{ parse, parseSC }
 import utils.Addr
 import utils.Heap
 import core.Expr.{ CoreProgram, CoreExpr, CoreScDefn, preludeDefs }
@@ -26,10 +26,11 @@ object GMachine {
 
   def compile(prog : CoreProgram) : GMState = {
     val (heap, globals) = buildInitialHeap(prog)
-    new GMState(List(PushGlobal("main"), Unwind), Nil, heap, globals, gmStatsInitial)
+    new GMState(List(PushGlobal("main"), Eval), Nil, Nil, heap, globals, gmStatsInitial)
   }
 
-  def buildInitialHeap(prog : CoreProgram) : (Heap[Node], Map[String, Addr]) = innerBuild(hInitial, (preludeDefs ++ prog).map(compileSC) ++ compiledPrimitives)
+  def buildInitialHeap(prog : CoreProgram) : (Heap[Node], Map[String, Addr]) =
+    innerBuild(hInitial, (preludeDefs ++ extraPreludeDefs ++ prog).map(compileSC) ++ compiledPrimitives)
   def innerBuild(acc : Heap[Node], prog : List[GMCompiledSC]) : (Heap[Node], Map[String, Addr]) = prog match {
     case Nil => (acc, Map())
     case x :: xs => {
@@ -74,7 +75,38 @@ object GMachine {
 
   def argOffset(i : Int, env : Map[String, Int]) : Map[String, Int] = for ((v, m) <- env) yield (v, m + i)
 
-  val compiledPrimitives : List[GMCompiledSC] = Nil
+  val compiledPrimitives : List[GMCompiledSC] = List(
+    ("+", 2, List(Push(1), Eval, Push(1), Eval, Add, Update(2), Pop(2), Unwind)),
+    ("-", 2, List(Push(1), Eval, Push(1), Eval, Sub, Update(2), Pop(2), Unwind)),
+    ("*", 2, List(Push(1), Eval, Push(1), Eval, Mul, Update(2), Pop(2), Unwind)),
+    ("/", 2, List(Push(1), Eval, Push(1), Eval, Div, Update(2), Pop(2), Unwind)),
+    ("neg", 1, List(Push(0), Eval, Neg, Update(1), Pop(1), Unwind)),
+    ("==", 2, List(Push(1), Eval, Push(1), Eval, Eq, Update(2), Pop(2), Unwind)),
+    ("!=", 2, List(Push(1), Eval, Push(1), Eval, Ne, Update(2), Pop(2), Unwind)),
+    ("<", 2, List(Push(1), Eval, Push(1), Eval, Lt, Update(2), Pop(2), Unwind)),
+    ("<=", 2, List(Push(1), Eval, Push(1), Eval, Le, Update(2), Pop(2), Unwind)),
+    (">", 2, List(Push(1), Eval, Push(1), Eval, Gt, Update(2), Pop(2), Unwind)),
+    (">=", 2, List(Push(1), Eval, Push(1), Eval, Ge, Update(2), Pop(2), Unwind)),
+    ("if", 3, List(Push(0), Eval, Cond(List(Push(1)), List(Push(2))), Update(3), Pop(3), Unwind)),
+
+    //TODO eliminate
+    ("True", 0, List(PushInt(1), Update(0), Pop(0), Unwind)),
+    ("False", 0, List(PushInt(0), Update(0), Pop(0), Unwind)))
+
+  val extraPreludeDefs : CoreProgram = List(
+    //    ("True", Nil, EConstr(1, 0)),
+    //    ("False", Nil, EConstr(2, 0)),
+    //    ("MkPair", Nil, EConstr(1, 2)),
+    //    ("Nil", Nil, EConstr(1, 0)),
+    //    ("Cons", Nil, EConstr(2, 2)),
+    parseSC("and x y = if x y False"),
+    parseSC("or x y = if x True y"),
+    parseSC("not x = if x False True"),
+    parseSC("xor x y = if x (not y) y") //    parseSC("fst p = casePair p K"),
+    //    parseSC("snd p = casePair p K1"),
+    //    parseSC("head l = caseList l abort K"),
+    //    parseSC("tail l = caseList l abort K1")
+    )
 
   def compileLets(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
     case Nil               => Nil
@@ -90,9 +122,9 @@ object GMachine {
     argOffset(defs.length, env) ++ defs.map(_ _1).zip(defs.length - 1 to 0 by -1)
 
   def showResults(trace : List[GMState]) : String =
-//    "State transitions " + trace.map(showState) + trace.last.showStats +
-      "End result " + trace.last.showResult
+    //    "State transitions " + trace.map(showState) + trace.last.showStats +
+    "End result " + trace.last.showResult
 
-  def showState(s : GMState) : String = s.showStack + s.showInstructions + '\n'
+  def showState(s : GMState) : String = s.showStack + s.showInstructions + s.showDump
 
 }
