@@ -3,7 +3,7 @@ package gmachine
 import core.ExprParser.{ parse, parseSC }
 import utils.Addr
 import utils.Heap
-import core.Expr.{ CoreProgram, CoreExpr, CoreScDefn, preludeDefs }
+import core.Expr.{ CoreProgram, CoreExpr, CoreScDefn, preludeDefs, CoreAlt }
 import GMStats.gmStatsInitial
 import utils.Heap.hInitial
 import core.EAp
@@ -20,7 +20,7 @@ object GMachine {
 
   def run(prog : String) : String = {
     val code = compile(parse(prog))
-    println(code.showDefns)
+//    println(code.showDefns)
     showResults(code.eval)
   }
 
@@ -64,7 +64,19 @@ object GMachine {
     case EAp(EAp(EVar(op), e2), e3) if builtInBinaries.contains(op) =>
       compileE(e3, env) ++ compileE(e2, argOffset(1, env)) ++ List(builtInBinaries(op))
     case EAp(EAp(EAp(EVar("if"), e2), e3), e4) => compileE(e2, env) ++ List(Cond(compileE(e3, env), compileE(e4, env)))
-    case EAp(e1, e2)                           => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp, Eval)
+
+    //TODO solve this crap
+    case EConstr(tag, 0)                       => List(Pack(tag, 0))
+    case EAp(EConstr(tag, 1), e1) =>
+      compileC(e1, env) ++ List(Pack(tag, 1))
+    case EAp(EAp(EConstr(tag, 2), e1), e2) =>
+      compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(Pack(tag, 2))
+    case EAp(EAp(EAp(EConstr(tag, 3), e1), e2), e3) =>
+      compileC(e3, env) ++ compileC(e2, argOffset(1, env)) ++ compileC(e1, argOffset(2, env)) ++ List(Pack(tag, 3))
+    case EAp(EAp(EAp(EAp(EConstr(tag, 4), e1), e2), e3), e4) =>
+      compileC(e4, env) ++ compileC(e3, argOffset(1, env)) ++ compileC(e2, argOffset(2, env)) ++ compileC(e1, argOffset(3, env)) ++ List(Pack(tag, 4))
+
+    case EAp(e1, e2) => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp, Eval)
     case ELet(false, defns, e) => {
       val env2 = compileArgs(defns, env)
       compileLets(defns, env) ++ compileE(e, env2) ++ List(Slide(defns.length))
@@ -73,14 +85,26 @@ object GMachine {
       val env2 = compileArgs(defns, env)
       List(Alloc(defns.length)) ++ compileLetrecs(defns, env2) ++ compileE(e, env2) ++ List(Slide(defns.length))
     }
-    case ECase(expr, alts)   => throw new Exception("cannot compile cases yet")
+    case ECase(expr, alts)   => compileE(expr, env) ++ List(CaseJump(compileD(alts, env)))
     case ELam(vs, body)      => throw new Exception("cannot compile lams yet")
-    case EConstr(tag, arity) => throw new Exception("cannot compile constrs yet")
+    case EConstr(tag, arity) => throw new Exception("cannot compile constrs of arity greater than 4 yet")
   }
 
   def compileC(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = e match {
-    case ENum(n)     => List(PushInt(n))
-    case EVar(v)     => if (env.contains(v)) List(Push(env(v))) else List(PushGlobal(v))
+    case ENum(n)         => List(PushInt(n))
+    case EVar(v)         => if (env.contains(v)) List(Push(env(v))) else List(PushGlobal(v))
+
+    //TODO solve this crap
+    case EConstr(tag, 0) => List(Pack(tag, 0))
+    case EAp(EConstr(tag, 1), e1) =>
+      compileC(e1, env) ++ List(Pack(tag, 1))
+    case EAp(EAp(EConstr(tag, 2), e1), e2) =>
+      compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(Pack(tag, 2))
+    case EAp(EAp(EAp(EConstr(tag, 3), e1), e2), e3) =>
+      compileC(e3, env) ++ compileC(e2, argOffset(1, env)) ++ compileC(e1, argOffset(2, env)) ++ List(Pack(tag, 3))
+    case EAp(EAp(EAp(EAp(EConstr(tag, 4), e1), e2), e3), e4) =>
+      compileC(e4, env) ++ compileC(e3, argOffset(1, env)) ++ compileC(e2, argOffset(2, env)) ++ compileC(e1, argOffset(3, env)) ++ List(Pack(tag, 4))
+
     case EAp(e1, e2) => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp)
     case ELet(false, defns, e) => {
       val env2 = compileArgs(defns, env)
@@ -90,9 +114,15 @@ object GMachine {
       val env2 = compileArgs(defns, env)
       List(Alloc(defns.length)) ++ compileLetrecs(defns, env2) ++ compileC(e, env2) ++ List(Slide(defns.length))
     }
-    case ECase(expr, alts)   => throw new Exception("cannot compile cases yet")
+    case ECase(expr, alts)   => throw new Exception("cannot compile cases in C?")
     case ELam(vs, body)      => throw new Exception("cannot compile lams yet")
     case EConstr(tag, arity) => throw new Exception("cannot compile constrs yet")
+  }
+
+  def compileD(alts : List[CoreAlt], env : Map[String, Int]) : Map[Int, List[Instruction]] = Map() ++ alts.map(compileA(env))
+
+  def compileA(env : Map[String, Int]) : CoreAlt => (Int, List[Instruction]) = {
+    case (tag, args, e) => tag -> (List(Split(args.length)) ++ compileE(e, compileVars(args, env)) ++ List(Slide(args.length)))
   }
 
   def argOffset(i : Int, env : Map[String, Int]) : Map[String, Int] = for ((v, m) <- env) yield (v, m + i)
@@ -124,17 +154,17 @@ object GMachine {
   val extraPreludeDefs : CoreProgram = List(
     //    ("True", Nil, EConstr(1, 0)),
     //    ("False", Nil, EConstr(2, 0)),
-    //    ("MkPair", Nil, EConstr(1, 2)),
-    //    ("Nil", Nil, EConstr(1, 0)),
-    //    ("Cons", Nil, EConstr(2, 2)),
+    parseSC("MkPair x y = {Pack 1, 2} x y"),
+    parseSC("Nil = {Pack 1, 0}"),
+    parseSC("Cons x y = {Pack 2, 2} x y"),
     parseSC("and x y = if x y False"),
     parseSC("or x y = if x True y"),
     parseSC("not x = if x False True"),
-    parseSC("xor x y = if x (not y) y") //    parseSC("fst p = casePair p K"),
-    //    parseSC("snd p = casePair p K1"),
-    //    parseSC("head l = caseList l abort K"),
-    //    parseSC("tail l = caseList l abort K1")
-    )
+    parseSC("xor x y = if x (not y) y"),
+    parseSC("fst p = case p of <1> x y -> x"),
+    parseSC("snd p = case p of <1> x y -> y"),
+    parseSC("head l = case l of <1> -> abort; <2> x y -> x"),
+    parseSC("tail l = case l of <1> -> abort; <2> x y -> y"))
 
   def compileLets(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
     case Nil               => Nil
@@ -148,6 +178,9 @@ object GMachine {
 
   def compileArgs(defs : List[(String, CoreExpr)], env : Map[String, Int]) : Map[String, Int] =
     argOffset(defs.length, env) ++ defs.map(_ _1).zip(defs.length - 1 to 0 by -1)
+
+  def compileVars(vars : List[String], env : Map[String, Int]) : Map[String, Int] =
+    argOffset(vars.length, env) ++ vars.zip(0 until vars.length)
 
   def showResults(trace : List[GMState]) : String =
     //    "State transitions " + trace.map(showState) + trace.last.showStats +

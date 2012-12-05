@@ -8,9 +8,9 @@ class GMState(code : List[Instruction], stack : List[Addr],
               dump : List[(List[Instruction], List[Addr])], heap : Heap[Node], globals : Map[String, Addr], stats : GMStats) {
 
   def eval : List[GMState] = {
-//        println(showStack)
-//        println(showInstructions)
-//        println("--------------------")
+//            println(showStack)
+//            println(showInstructions)
+//            println("--------------------")
     if (code.isEmpty)
       List(this)
     else
@@ -47,7 +47,11 @@ class GMState(code : List[Instruction], stack : List[Addr],
         case (dumpCode, dumpStack) :: ds => new GMState(dumpCode, stack.head :: dumpStack, ds, heap, globals, stats)
         case Nil                         => new GMState(Nil, stack, Nil, heap, globals, stats)
       }
-      case NAp(a1, a2)                           => new GMState(List(Unwind), a1 :: stack, dump, heap, globals, stats)
+      case NConstr(t, a) => dump match {
+        case (dumpCode, dumpStack) :: ds => new GMState(dumpCode, stack.head :: dumpStack, ds, heap, globals, stats)
+        case Nil                         => new GMState(Nil, stack, Nil, heap, globals, stats)
+      }
+      case NAp(a1, a2)                            => new GMState(List(Unwind), a1 :: stack, dump, heap, globals, stats)
       case NGlobal(n, c) if stack.tail.length < n => new GMState(dump.head._1, stack.last :: dump.head._2, dump.tail, heap, globals, stats)
       case NGlobal(n, c) => {
         val newStack = stack.tail.map(getArg).take(n) ++ stack.drop(n)
@@ -77,6 +81,19 @@ class GMState(code : List[Instruction], stack : List[Addr],
       case NNum(1) => new GMState(c1 ++ is, stack.tail, dump, heap, globals, stats)
       case NNum(0) => new GMState(c2 ++ is, stack.tail, dump, heap, globals, stats)
       case _       => throw new Exception("bad arg to cond")
+    }
+    case Pack(tag, arity) :: is => {
+      val (newHeap, a) = heap.alloc(NConstr(tag, stack.take(arity)))
+      new GMState(is, a :: stack.drop(arity), dump, newHeap, globals, stats)
+    }
+    case CaseJump(cases) :: is => heap.lookup(stack.head) match {
+      case NConstr(tag, args) => new GMState(cases(tag) ++ is, stack, dump, heap, globals, stats)
+      case _                  => throw new Exception("casejumping on a non constr")
+    }
+    case Split(n) :: is => heap.lookup(stack.head) match {
+      case NConstr(tag, args) if n == args.length => new GMState(is, args ++ stack.tail, dump, heap, globals, stats)
+      case NConstr(t, a)                          => throw new Exception("splitting the wrong number of args")
+      case _                                      => throw new Exception("splitting on a non constr")
     }
   }
 
@@ -111,10 +128,11 @@ class GMState(code : List[Instruction], stack : List[Addr],
   }
 
   def showAtAddr(a : Addr) : String = heap.lookup(a) match {
-    case NNum(n)       => "#" + n.toString
-    case NInd(a)       => showAtAddr(a)
-    case NAp(a1, a2)   => "(" + a1 + " " + a2 + ")"
-    case NGlobal(n, c) => (for (i <- c) yield i + " ").mkString
+    case NNum(n)            => "#" + n.toString
+    case NInd(a)            => showAtAddr(a)
+    case NAp(a1, a2)        => "(" + a1 + " " + a2 + ")"
+    case NGlobal(n, c)      => (for (i <- c) yield i + " ").mkString
+    case NConstr(tag, args) => "{" + tag + "," + (for (a <- args) yield showAtAddr(a) + " ").mkString + "}"
   }
 
   def showDefns : String = globals.map(showSC).toString
