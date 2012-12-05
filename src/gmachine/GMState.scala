@@ -2,8 +2,9 @@ package gmachine
 
 import utils.Addr
 import utils.Heap
+import utils.Heap.hNull
 
-class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node], val globals : Map[String, Addr], stats : GMStats) {
+class GMState(code : List[Instruction], stack : List[Addr], heap : Heap[Node], globals : Map[String, Addr], stats : GMStats) {
 
   def eval : List[GMState] =
     if (code.isEmpty)
@@ -45,6 +46,11 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
       }
       case NInd(a)                            => new GMState(List(Unwind), a :: stack.tail, heap, globals, stats)
     }
+    case Alloc(n) :: is => {
+      val (newHeap, as) = allocNodes(n, heap)
+      new GMState(is, as ++ stack, newHeap, globals, stats)
+    }
+    case Slide(n) :: is => new GMState(is, stack.head :: stack.drop(n + 1), heap, globals, stats)
   }
   
   def getArg(a : Addr) : Addr = heap.lookup(a) match {
@@ -52,12 +58,24 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
     case _ => throw new Exception("stack contains a non-application")
   }
 
+  def allocNodes(n : Int, h : Heap[Node]) : (Heap[Node], List[Addr]) = 
+    if (n == 0) (h, Nil)
+    else {
+      val (heap1, as) = allocNodes(n - 1, h)
+      val (heap2, a) = heap1.alloc(NInd(hNull))
+      (heap2, a::as)
+    }
+  
   def showAtAddr(a : Addr) : String = heap.lookup(a) match {
     case NNum(n) => "#" + n.toString
     case NInd(a) => showAtAddr(a)
     case NAp(a1, a2) => "(" + a1 + " " + a2 + ")"
-    case NGlobal(n, c) => c.mkString
+    case NGlobal(n, c) => (for (i <- c) yield i + " ").mkString
   }
+  
+  def showDefns : String = globals.map(showSC).toString
+  
+  def showSC(g : (String, Addr)) : String = g._1 + " = " + showAtAddr(g._2) + "\n"
   
   def showStack : String = (for (s <- stack) yield s + " ").mkString + '\n'
 
@@ -65,6 +83,8 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
 
   def showHeap : String = (for (a <- heap.addresses) yield a + " = " + heap.lookup(a) + '\n').mkString
   
+  def showResult : String = heap.lookup(stack.head).toString + '\n'
+  
   def showStats : String =
-    "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap
+    "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap + '\n'
 }

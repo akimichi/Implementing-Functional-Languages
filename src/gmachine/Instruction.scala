@@ -9,4 +9,5 @@ case class Push(n : Int) extends Instruction
 case object MkAp extends Instruction
 case class Update(n : Int) extends Instruction
 case class Pop(n : Int) extends Instruction
-
+case class Alloc(n : Int) extends Instruction
+case class Slide(n : Int) extends Instruction

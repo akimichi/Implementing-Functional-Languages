@@ -10,11 +10,12 @@ object Main {
   def main(args : Array[String]) : Unit = {
     println("Runs!")
     println(run("main = S K K 3"))
-//    println(run("main = let x = K in f j x 3; f x g n = x (g n); j n = n 4"))
+    println(run("Y f = letrec x = f x in x; main = 3"))
+    println(run("main = twice twice twice I 3"))
+    println(run("main = let kk = K in kk 4"))
 //    println(run("pair x y f = f x y ; fst p = p K ; snd p = p K1 ;" +
 //      " f x y = letrec a = pair x b ; b = pair y a in fst (snd (snd (snd a)));" +
 //      "main = f 3 4"))
-    println(run("main = twice twice twice I 3"))
 //    println(run("main = neg 3"))
 //    println(run("main = neg (I 3)"))
 //    println(run("main = + 3 4"))

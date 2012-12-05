@@ -18,7 +18,11 @@ object GMachine {
 
   val initialTiDump = Nil
 
-  def run(prog : String) : String = showResults(compile(parse(prog)).eval)
+  def run(prog : String) : String = {
+    val code = compile(parse(prog))
+    println(code.showDefns)
+    showResults(code.eval)
+  }
 
   def compile(prog : CoreProgram) : GMState = {
     val (heap, globals) = buildInitialHeap(prog)
@@ -52,27 +56,43 @@ object GMachine {
   def compileR(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = compileC(e, env) ++ List(Update(env.size), Pop(env.size), Unwind)
 
   def compileC(e : CoreExpr, env : Map[String, Int]) : List[Instruction] = e match {
-    case ENum(n)               => List(PushInt(n))
-    case EVar(v)               => if (env.contains(v)) List(Push(env(v))) else List(PushGlobal(v))
-    case EAp(e1, e2)           => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp)
-    case ELet(isRec, defns, e) => throw new Exception("cannot compile lets yet")
-    case ECase(expr, alts)     => throw new Exception("cannot compile cases yet")
-    case ELam(vs, body)        => throw new Exception("cannot compile lams yet")
-    case EConstr(tag, arity)   => throw new Exception("cannot compile constrs yet")
+    case ENum(n)     => List(PushInt(n))
+    case EVar(v)     => if (env.contains(v)) List(Push(env(v))) else List(PushGlobal(v))
+    case EAp(e1, e2) => compileC(e2, env) ++ compileC(e1, argOffset(1, env)) ++ List(MkAp)
+    case ELet(false, defns, e) => {
+      val env2 = compileArgs(defns, env)
+      compileLets(defns, env) ++ compileC(e, env2) ++ List(Slide(defns.length))
+    }
+    case ELet(true, defns, e) => {
+      val env2 = compileArgs(defns, env)
+      List(Alloc(defns.length)) ++ compileLetrecs(defns, env2) ++ compileC(e, env2) ++ List(Slide(defns.length))
+    }
+    case ECase(expr, alts)   => throw new Exception("cannot compile cases yet")
+    case ELam(vs, body)      => throw new Exception("cannot compile lams yet")
+    case EConstr(tag, arity) => throw new Exception("cannot compile constrs yet")
   }
-  
+
   def argOffset(i : Int, env : Map[String, Int]) : Map[String, Int] = for ((v, m) <- env) yield (v, m + i)
 
   val compiledPrimitives : List[GMCompiledSC] = Nil
-  
-  
-  def showResults(trace : List[GMState]) : String = 
-    "Supercombinator definitions " + trace.last.globals.map(showSC(trace.last)) + "\n" +
-    "State transitions " + trace.map(showState) + trace.last.showStats + "\n" +
-    "End result " + trace.last.showStack
 
-  def showSC(s : GMState)(g : (String, Addr)) : String = g._1 + " = " + s.showAtAddr(g._2) + "\n"
-  
+  def compileLets(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
+    case Nil               => Nil
+    case (name, e) :: defs => compileC(e, env) ++ List(Update(defs.length)) ++ compileLets(defs, argOffset(1, env))
+  }
+
+  def compileLetrecs(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
+    case Nil               => Nil
+    case (name, e) :: defs => compileC(e, env) ++ compileLetrecs(defs, env)
+  }
+
+  def compileArgs(defs : List[(String, CoreExpr)], env : Map[String, Int]) : Map[String, Int] =
+    argOffset(defs.length, env) ++ defs.map(_ _1).zip(defs.length - 1 to 0 by -1)
+
+  def showResults(trace : List[GMState]) : String =
+//    "State transitions " + trace.map(showState) + trace.last.showStats +
+      "End result " + trace.last.showResult
+
   def showState(s : GMState) : String = s.showStack + s.showInstructions + '\n'
-     
+
 }
