@@ -78,12 +78,12 @@ object GMachine {
 
   def compileLets(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
     case Nil               => Nil
-    case (name, e) :: defs => compileC(e, env) ++ List(Update(defs.length)) ++ compileLets(defs, argOffset(1, env))
+    case (name, e) :: defs => compileC(e, env) ++ compileLets(defs, argOffset(1, env))
   }
 
   def compileLetrecs(defs : List[(String, CoreExpr)], env : Map[String, Int]) : List[Instruction] = defs match {
     case Nil               => Nil
-    case (name, e) :: defs => compileC(e, env) ++ compileLetrecs(defs, env)
+    case (name, e) :: defs => compileC(e, env) ++ List(Update(defs.length)) ++ compileLetrecs(defs, env)
   }
 
   def compileArgs(defs : List[(String, CoreExpr)], env : Map[String, Int]) : Map[String, Int] =
