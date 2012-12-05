@@ -67,15 +67,11 @@ object GMachine {
   
   
   def showResults(trace : List[GMState]) : String = 
-    "Supercombinator definitions \n" + trace.last.globals.map(showSC(trace.last)) + "State transitions \n" + trace.map(showState) + trace.last.showStats
+    "Supercombinator definitions " + trace.last.globals.map(showSC(trace.last)) + "\n" +
+    "State transitions " + trace.map(showState) + trace.last.showStats + "\n" +
+    "End result " + trace.last.showStack
 
-  def showSC(s : GMState)(g : (String, Addr)) : String =
-    s.heap.lookup(g._2) match {
-      case NGlobal(arity, code) => g._1 + " = " + code + '\n'
-      case NNum(n) => ""
-      case NInd(a) => showSC(s)((g._1, a))
-      case NAp(a1, a2) => throw new Exception("globals contains an application node")
-    }
+  def showSC(s : GMState)(g : (String, Addr)) : String = g._1 + " = " + s.showAtAddr(g._2) + "\n"
   
   def showState(s : GMState) : String = s.showStack + s.showInstructions + '\n'
      

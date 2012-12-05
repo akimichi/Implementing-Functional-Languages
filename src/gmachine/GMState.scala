@@ -30,7 +30,7 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
         val (newHeap, a) = heap.alloc(NNum(n))
         new GMState(is, a :: stack, newHeap, globals + (n.toString -> a), stats)
       }
-    case Push(n) :: is => new GMState(is, getArg(stack(n + 1)) :: stack, heap, globals, stats)
+    case Push(n) :: is => new GMState(is, stack(n) :: stack, heap, globals, stats)
     case Update(n) :: is => {
       val newHeap = heap.update(stack(n + 1))(NInd(stack.head))
       new GMState(is, stack.tail, newHeap, globals, stats)
@@ -39,7 +39,10 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
     case Unwind :: is => heap.lookup(stack.head) match {
       case NNum(n)                            => new GMState(Nil, stack, heap, globals, stats)
       case NAp(a1, a2)                        => new GMState(List(Unwind), a1 :: stack, heap, globals, stats)
-      case NGlobal(n, c)                      => new GMState(c, stack, heap, globals, stats)
+      case NGlobal(n, c)                      => {
+        val newStack = stack.tail.map(getArg).take(n) ++ stack.drop(n)
+        new GMState(c, newStack, heap, globals, stats)
+      }
       case NInd(a)                            => new GMState(List(Unwind), a :: stack.tail, heap, globals, stats)
     }
   }
@@ -49,10 +52,19 @@ class GMState(code : List[Instruction], stack : List[Addr], val heap : Heap[Node
     case _ => throw new Exception("stack contains a non-application")
   }
 
+  def showAtAddr(a : Addr) : String = heap.lookup(a) match {
+    case NNum(n) => "#" + n.toString
+    case NInd(a) => showAtAddr(a)
+    case NAp(a1, a2) => "(" + a1 + " " + a2 + ")"
+    case NGlobal(n, c) => c.mkString
+  }
+  
   def showStack : String = (for (s <- stack) yield s + " ").mkString + '\n'
 
   def showInstructions : String = (for (i <- code) yield i + " ").mkString + '\n'
 
+  def showHeap : String = (for (a <- heap.addresses) yield a + " = " + heap.lookup(a) + '\n').mkString
+  
   def showStats : String =
     "Total number of steps = " + stats.getSteps + '\n' + "Final heap allocation = " + heap.size + '\n' + "Max heap allocation = " + stats.maxHeap
 }
