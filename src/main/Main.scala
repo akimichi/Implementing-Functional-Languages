@@ -33,6 +33,7 @@ object Main {
     println(run("sublength x xs = + 1 (length xs); length l = case l of <1> -> 0; <2> x xs -> sublength x xs; main = length (Cons 3 (Cons True (Cons 4 Nil)))"))
     println(run("main = head (Cons 2 Nil)"))
     println(run("main = tail (Cons 2 Nil)"))
+    println(run("map f l = case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map {Pack 0, 1} list"))
   }
 
 }

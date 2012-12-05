@@ -8,9 +8,9 @@ class GMState(code : List[Instruction], stack : List[Addr],
               dump : List[(List[Instruction], List[Addr])], heap : Heap[Node], globals : Map[String, Addr], stats : GMStats) {
 
   def eval : List[GMState] = {
-//            println(showStack)
-//            println(showInstructions)
-//            println("--------------------")
+    //            println(showStack)
+    //            println(showInstructions)
+    //            println("--------------------")
     if (code.isEmpty)
       List(this)
     else
@@ -21,6 +21,12 @@ class GMState(code : List[Instruction], stack : List[Addr],
 
   def step : GMState = code match {
     case Nil => throw new Exception("no code found")
+    case PushConstr(t, ar) :: is if globals.contains("{Pack " + t + ", " + ar + "}") =>
+      new GMState(is, globals("{Pack " + t + ", " + ar + "}") :: stack, dump, heap, globals, stats)
+    case PushConstr(t, ar) :: is => {
+      val (newHeap, a) = heap.alloc(NGlobal(ar, List(Pack(t, ar), Update(0), Unwind)))
+      new GMState(is, a :: stack, dump, newHeap, globals + ("{Pack " + t + ", " + ar + "}" -> a), stats)
+    }
     case PushGlobal(f) :: is => {
       val globF = globals.getOrElse(f, throw new Exception("undeclared global " + f))
       new GMState(is, globF :: stack, dump, heap, globals, stats)
@@ -29,13 +35,12 @@ class GMState(code : List[Instruction], stack : List[Addr],
       val (newHeap, a) = heap.alloc(NAp(stack(0), stack(1)))
       new GMState(is, a :: stack.drop(2), dump, newHeap, globals, stats)
     }
-    case PushInt(n) :: is =>
-      if (globals.contains(n.toString))
-        new GMState(is, globals(n.toString) :: stack, dump, heap, globals, stats)
-      else {
-        val (newHeap, a) = heap.alloc(NNum(n))
-        new GMState(is, a :: stack, dump, newHeap, globals + (n.toString -> a), stats)
-      }
+    case PushInt(n) :: is if (globals.contains(n.toString)) =>
+      new GMState(is, globals(n.toString) :: stack, dump, heap, globals, stats)
+    case PushInt(n) :: is => {
+      val (newHeap, a) = heap.alloc(NNum(n))
+      new GMState(is, a :: stack, dump, newHeap, globals + (n.toString -> a), stats)
+    }
     case Push(n) :: is => new GMState(is, stack(n) :: stack, dump, heap, globals, stats)
     case Update(n) :: is => {
       val newHeap = heap.update(stack(n + 1))(NInd(stack.head))
@@ -108,7 +113,7 @@ class GMState(code : List[Instruction], stack : List[Addr],
   def boxInt(i : Int) : (Heap[Node], Addr) = heap.alloc(NNum(i))
 
   def boxBool(b : Boolean) : (Heap[Node], Addr) = heap.alloc(NConstr(if (b) 1 else 2, Nil))
-  
+
   def unboxInt(a : Addr) : Int = heap.lookup(a) match {
     case NNum(i) => i
     case _       => throw new Exception("unboxing a non-int")
@@ -123,7 +128,7 @@ class GMState(code : List[Instruction], stack : List[Addr],
     val (newHeap, a) = boxInt(op(unboxInt(stack.head))(unboxInt(stack.tail.head)))
     new GMState(code.tail, a :: stack.tail.tail, dump, newHeap, globals, stats)
   }
-  
+
   def primitive2b(op : Int => Int => Boolean) : GMState = {
     val (newHeap, a) = boxBool(op(unboxInt(stack.head))(unboxInt(stack.tail.head)))
     new GMState(code.tail, a :: stack.tail.tail, dump, newHeap, globals, stats)
