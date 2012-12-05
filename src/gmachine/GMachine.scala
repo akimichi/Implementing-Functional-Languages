@@ -90,7 +90,7 @@ object GMachine {
       val env2 = compileArgs(defns, env)
       List(Alloc(defns.length)) ++ compileLetrecs(defns, env2) ++ compileC(e, env2) ++ List(Slide(defns.length))
     }
-    case ECase(expr, alts) => throw new Exception("cannot compile cases in C?")
+    case ECase(expr, alts) => throw new Exception("cannot compile cases in C?") //TODO page 136
     case ELam(vs, body)    => throw new Exception("cannot compile lams yet")
   }
 
