@@ -1,10 +1,9 @@
-package gmachine
+package parallelg
 
 import core.ExprParser.{ parse, parseSC }
 import utils.Addr
 import utils.Heap
 import core.Expr.{ CoreProgram, CoreExpr, CoreScDefn, preludeDefs, CoreAlt }
-import GMStats.gmStatsInitial
 import utils.Heap.hInitial
 import core.EAp
 import core.EConstr
@@ -14,7 +13,7 @@ import core.ECase
 import core.ELam
 import core.ELet
 
-object GMachine {
+object ParallelG {
 
   val initialTiDump = Nil
 

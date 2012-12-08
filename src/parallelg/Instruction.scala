@@ -1,4 +1,4 @@
-package gmachine
+package parallelg
 
 sealed abstract class Instruction
 
@@ -27,5 +27,6 @@ case object Ge extends Instruction
 case class Pack(tag : Int, arity : Int) extends Instruction
 case class CaseJump(cases : Map[Int, List[Instruction]]) extends Instruction
 case class Split(n : Int) extends Instruction
+case object Par extends Instruction
 case object Print extends Instruction 
 case class PrintLit(s : String) extends Instruction

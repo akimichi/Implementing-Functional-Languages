@@ -95,6 +95,22 @@ class GMState(code : List[Instruction], stack : List[Addr],
       case NConstr(t, a)                          => throw new Exception("splitting the wrong number of args")
       case _                                      => throw new Exception("splitting on a non constr")
     }
+    case Print :: is => heap.lookup(stack.head) match {
+      case NConstr(tag, args) => {
+        print("{ Pack " + tag + " ")
+        val code = args.flatMap(a => List(Eval, Print)) ++ List(PrintLit("} "))
+        new GMState(code ++ is, args ++ stack.tail, dump, heap, globals, stats)
+      }
+      case NNum(n)            => {
+        print(n + " ")
+        new GMState(is, stack.tail, dump, heap, globals, stats)
+      }
+      case _                  => throw new Exception("printing a non WHNF")
+    }
+    case PrintLit(s) :: is => {
+      print(s)
+      new GMState(is, stack, dump, heap, globals, stats)
+    }
   }
 
   def getArg(a : Addr) : Addr = heap.lookup(a) match {
