@@ -3,13 +3,15 @@ package main
 import core.PrettyPrinter.pprint
 import core.Expr.{ preludeDefs, mapTest }
 import core.ExprParser.parse
-import gmachine.GMachine.run
+import parallelg.ParallelG.run
 
 object Main {
 
   def main(args : Array[String]) : Unit = {
     println("Runs!")
     run("main = S K K 3")
+    run("main = (S K K (S K K)) (S K K (S K K 3))")
+    run("main = par (S K K (S K K)) (S K K (S K K 3))")
     run("Y f = letrec x = f x in x; main = 3")
     run("main = twice twice twice I 3")
     run("main = let kk = K in kk 4 5")

@@ -11,14 +11,14 @@ class TotalState(val global : GlobalState, val locals : List[LocalState]) {
   def steps : TotalState = {
     val newTasks = global.sparks.map(a => new LocalState(a))
     val tickedTasks = (locals ++ newTasks).map(_ tick)
-    runStep(new TotalState(GlobalState(global.heap, global.globals, Nil, global.stats), tickedTasks))
+    new TotalState(GlobalState(global.heap, global.globals, Nil, global.stats), tickedTasks).runStep
   }
 
-  def runStep(t : TotalState) : TotalState = locals match {
-    case Nil => t
+  def runStep : TotalState = locals match {
+    case Nil => this
     case x :: xs => {
-      val (GlobalState(h, g, sp, st), x1) = step(GlobalState(t.global.heap, t.global.globals, t.global.sparks, t.global.stats), x)
-      val acc2 = runStep(new TotalState(GlobalState(h, g, sp, st), xs))
+      val (GlobalState(h, g, sp, st), x1) = step(GlobalState(global.heap, global.globals, global.sparks, global.stats), x)
+      val acc2 = new TotalState(GlobalState(h, g, sp, st), xs).runStep
       new TotalState(acc2.global, x1 :: acc2.locals)
     }
   }

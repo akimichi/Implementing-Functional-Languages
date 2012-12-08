@@ -21,12 +21,13 @@ object ParallelG {
     val code = compile(parse(prog))
     print(prog + " ===> ")
     val result = code.eval
-    println
+    println(result.last.global.showStats)
   }
 
-  def compile(prog : CoreProgram) : GMState = {
+  def compile(prog : CoreProgram) : TotalState = {
     val (heap, globals) = buildInitialHeap(prog)
-    new GMState(List(PushGlobal("main"), Eval, Print), Nil, Nil, heap, globals, gmStatsInitial)
+    val addr = globals.getOrElse("main", throw new Exception("main undefined"))
+    new TotalState(GlobalState(heap, globals, Nil, Nil), List(LocalState(List(Eval, Print), List(addr), Nil, 0)))
   }
 
   def buildInitialHeap(prog : CoreProgram) : (Heap[Node], Map[String, Addr]) =
@@ -113,7 +114,8 @@ object ParallelG {
     ("<", 2, List(Push(1), Eval, Push(1), Eval, Lt, Update(2), Pop(2), Unwind)),
     ("<=", 2, List(Push(1), Eval, Push(1), Eval, Le, Update(2), Pop(2), Unwind)),
     (">", 2, List(Push(1), Eval, Push(1), Eval, Gt, Update(2), Pop(2), Unwind)),
-    (">=", 2, List(Push(1), Eval, Push(1), Eval, Ge, Update(2), Pop(2), Unwind)))
+    (">=", 2, List(Push(1), Eval, Push(1), Eval, Ge, Update(2), Pop(2), Unwind)),
+    ("par", 2, List(Push(1), Push(1), MkAp, Push(2), Par, Update(2), Pop(2), Unwind)))
 
   val builtInUnaries : Map[String, Instruction] = Map(("neg" -> Neg))
 
@@ -152,7 +154,5 @@ object ParallelG {
 
   def compileVars(vars : List[String], env : Map[String, Int]) : Map[String, Int] =
     argOffset(vars.length, env) ++ vars.zip(0 until vars.length)
-
-  def showState(s : GMState) : String = s.showStack + s.showInstructions + s.showDump
 
 }

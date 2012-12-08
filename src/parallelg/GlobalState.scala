@@ -83,22 +83,23 @@ case class GlobalState(heap : Heap[Node], globals : Map[String, Addr], sparks : 
         case NConstr(t, a)                          => throw new Exception("splitting the wrong number of args")
         case _                                      => throw new Exception("splitting on a non constr")
       }
-      case Print :: is => heap.lookup(stack.head) match {
+      case Print => heap.lookup(stack.head) match {
         case NConstr(tag, args) => {
           print("{ Pack " + tag + " ")
           val code = args.flatMap(a => List(Eval, Print)) ++ List(PrintLit("} "))
-          new GMState(code ++ is, args ++ stack.tail, dump, heap, globals, stats)
+          (this, LocalState(code ++ is, args ++ stack.tail, dump, clock))
         }
         case NNum(n) => {
           print(n + " ")
-          new GMState(is, stack.tail, dump, heap, globals, stats)
+          (this, LocalState(is, stack.tail, dump, clock))
         }
         case _ => throw new Exception("printing a non WHNF")
       }
-      case PrintLit(s) :: is => {
+      case PrintLit(s) => {
         print(s)
-        new GMState(is, stack, dump, heap, globals, stats)
+        (this, l)
       }
+      case Par => (GlobalState(heap, globals, stack.head :: sparks, stats), LocalState(is, stack.tail, dump, clock))
     }
   }
 
@@ -154,6 +155,6 @@ case class GlobalState(heap : Heap[Node], globals : Map[String, Addr], sparks : 
   def showHeap : String = (for (a <- heap.addresses) yield a + " = " + heap.lookup(a) + '\n').mkString
 
   def showStats : String =
-    "Total number of steps = " + stats + '\n' + "Final heap allocation = " + heap.size + '\n'
+    "\nTotal number of steps = " + stats + '\n' + "Final heap allocation = " + heap.size
 
 }
