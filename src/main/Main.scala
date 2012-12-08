@@ -1,8 +1,5 @@
 package main
 
-import core.PrettyPrinter.pprint
-import core.Expr.{ preludeDefs, mapTest }
-import core.ExprParser.parse
 import parallelg.ParallelG.run
 
 object Main {

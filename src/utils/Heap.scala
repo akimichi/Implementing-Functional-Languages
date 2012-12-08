@@ -1,13 +1,11 @@
 package utils
 
-import ISeq.iFW
-
 case class Addr protected[utils] (protected[utils] val i : Int) {
   
   def isNull : Boolean = i == 0
   override def toString : String = "#" + i
   
-  def showFW : String = iFW(4, this).display
+  def showFW : String = (for (n <- 0 until 4 - i.toString.length) yield ' ').mkString + this
   
 }
 

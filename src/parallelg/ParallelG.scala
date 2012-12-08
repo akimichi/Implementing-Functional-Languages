@@ -1,25 +1,20 @@
 package parallelg
 
-import core.ExprParser.{ parse, parseSC }
-import utils.Addr
-import utils.Heap
-import core.Expr.{ CoreProgram, CoreExpr, CoreScDefn, preludeDefs, CoreAlt }
+import core.ExprParser.{ parseSC, parse }
+import core.Expr.{ preludeDefs, CoreScDefn, CoreProgram, CoreExpr, CoreAlt }
+import core.{ EVar, ENum, ELet, ELam, EConstr, ECase, EAp }
 import utils.Heap.hInitial
-import core.EAp
-import core.EConstr
-import core.ENum
-import core.EVar
-import core.ECase
-import core.ELam
-import core.ELet
+import utils.{ Heap, Addr }
+import core.PrettyPrinter.pprProgram
 
 object ParallelG {
 
   val initialTiDump = Nil
 
-  def run(prog : String) : Unit = {
-    val code = compile(parse(prog))
-    print(prog + " ===> ")
+  def run(s : String) : Unit = {
+    val prog = parse(s)
+    val code = compile(prog)
+    print(pprProgram(prog) + " ===> ")
     val result = code.eval
     println(result.last.global.showStats)
   }

@@ -6,7 +6,6 @@ import utils.Addr
 import utils.Heap
 import utils.Heap.hInitial
 import TiStats.tiStatsInitial
-import utils.ISeq.{ iConcat, iLayn, iStr }
 import Primitive.primitives
 import core.EConstr
 
