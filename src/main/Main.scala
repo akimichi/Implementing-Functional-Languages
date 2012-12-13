@@ -1,6 +1,6 @@
 package main
 
-import parallelg.ParallelG.run
+import gmachine.GMachine.run
 
 object Main {
 
@@ -8,7 +8,6 @@ object Main {
     println("Runs!")
     run("main = S K K 3")
     run("main = (S K K (S K K)) (S K K (S K K 3))")
-    run("main = par (S K K (S K K)) (S K K (S K K 3))")
     run("Y f = letrec x = f x in x; main = 3")
     run("main = twice twice twice I 3")
     run("main = let kk = K in kk 4 5")

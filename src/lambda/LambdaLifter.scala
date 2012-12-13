@@ -1,19 +1,20 @@
 package lambda
 
 import core.AnnExpr.AnnProgram
-import core.AnnExpr.{AnnExpr, AnnAlter}
+import core.AnnExpr.{ AnnExpr, AnnAlter }
 import core.ExprParser.parse
-import core.Expr.{ rhsOf, bindersOf, Name, CoreProgram, CoreExpr }
+import core.Expr.{ rhsOf, bindersOf, Name, CoreProgram, CoreExpr, CoreScDefn }
 import core.PrettyPrinter.pprProgram
-import core.{ EVar, ENum, ELet, ELam, EConstr, ECase, EAp, AVar, ANum, ALet, ALam, AAp }
+import core.{ EVar, ENum, ELet, ELam, EConstr, ECase, EAp, AVar, ANum, ALet, ALam, AAp, AConstr }
 import core.Expr.CoreAlt
 import core.ACase
+import NameSupply.initialNameSupply
 
 object LambdaLifter {
 
   def runLifter(s : String) : String = pprProgram(lambdaLift(parse(s)))
 
-  def lambdaLift(prog : CoreProgram) : CoreProgram = collectSCs(rename(abstractVars(freeVars(prog))))
+  def lambdaLift(prog : CoreProgram) : CoreProgram = collectSCs(rename(abstractP(freeVars(prog))))
 
   def freeVars(prog : CoreProgram) : AnnProgram[Name, Set[Name]] =
     prog.map({ case (name, args, body) => (name, args, freeVarsE(args.toSet)(body)) })
@@ -49,17 +50,72 @@ object LambdaLifter {
       val casep = freeVarsE(lv)(e)
       (casep._1 union altsFree, ACase(casep, altsp))
     }
-    case EConstr(t, a)  => throw new Exception("no constr ?")
+    case EConstr(t, a) => throw new Exception("no constr ?")
   }
-  
+
   def freeVarsAlt(lv : Set[Name])(a : CoreAlt) : AnnAlter[Name, Set[Name]] = a match {
     case (tag, args, rhs) => (tag, args, freeVarsE(lv union args.toSet)(rhs))
   }
 
-  def abstractVars(prog : AnnProgram[Name, Set[Name]]) : CoreProgram = throw new Exception
+  def abstractP(prog : AnnProgram[Name, Set[Name]]) : CoreProgram = prog.map({ case (scName, args, rhs) => (scName, args, abstractE(rhs)) })
 
-  def rename(prog : CoreProgram) : CoreProgram = throw new Exception
+  def abstractE(e : AnnExpr[Name, Set[Name]]) : CoreExpr = e match {
+    case (free, AVar(v))                  => EVar(v)
+    case (free, ANum(n))                  => ENum(n)
+    case (free, AAp(e1, e2))              => EAp(abstractE(e1), abstractE(e2))
+    case (free, ALet(isRec, defns, body)) => ELet(isRec, defns.map({ case (name, rhs) => (name, abstractE(rhs)) }), abstractE(body))
+    case (free, ACase(e, alts))           => ECase(abstractE(e), alts.map({ case (t, vars, rhs) => (t, vars, abstractE(rhs)) }))
+    case (free, AConstr(t, a))            => throw new Exception("no constr ?")
+    case (free, ALam(args, body)) => {
+      val sc : CoreExpr = ELet(false, List(("sc", ELam(args ++ free, abstractE(body)))), EVar("sc"))
+      free.map(x => EVar(x) : CoreExpr).foldLeft(sc)({ case (x, y) => EAp(x, y) })
+    }
+  }
 
+  def rename(prog : CoreProgram) : CoreProgram =
+    prog.foldRight((initialNameSupply, Nil : List[CoreScDefn]))({
+      case ((name, args, rhs), (ns, newScs)) => {
+        val (ns1, argsp) = ns.getNames(args)
+        val env = Map() ++ args.zip(argsp)
+        val (ns2, rhsp) = renameE(env, ns1, rhs)
+        (ns2, (name, argsp, rhsp) :: newScs)
+      }
+    })._2
+
+  def renameE(env : Map[Name, Name], ns : NameSupply, e : CoreExpr) : (NameSupply, CoreExpr) = e match {
+    case ENum(k)                  => (ns, ENum(k))
+    case EVar(v)                  => (ns, EVar(env.getOrElse(v, v)))
+    case EAp(e1, e2)              => {
+      val (ns1, e1p) = renameE(env, ns, e1)
+      val (ns2, e2p) = renameE(env, ns1, e2)
+      (ns2, EAp(e1p, e2p))
+    }
+    case ELam(args, body)         => {
+      val (ns1, argsp) = ns.getNames(args)
+      val envp = env ++ args.zip(argsp)
+      val (ns2, bodyp) = renameE(envp, ns1, body)
+      (ns2, ELam(argsp, bodyp))
+    }
+    case ELet(isRec, defns, body) => {
+      val (ns1, bodyp) = renameE(bodyEnv, ns, body)
+      val binders = bindersOf(defns)
+      val (ns2, bindersp) = ns.getNames(binders)
+      val bodyEnv = env ++ binders.zip(bindersp)
+      val (ns3, rhsp) = renameLetDefns(ns2, rhsOf(defns))
+      (ns3, ELet(isRec, bindersp.zip(rhsp), body))
+    }
+    case ECase(e, alts)           => {
+      val (ns1, ep) = renameE(env, ns, e)
+    }
+    case EConstr(t, a)            => throw new Exception("no constr ?")
+  }
+  
+  def renameLetDefns(ns : NameSupply, rhss : List[CoreExpr]) : (NameSupply, List[CoreExpr]) = {
+    renameE(rhsEnv)
+    ???
+  }
+
+  
   def collectSCs(prog : CoreProgram) : CoreProgram = throw new Exception
 
 }
