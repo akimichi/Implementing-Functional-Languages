@@ -97,24 +97,41 @@ object LambdaLifter {
       (ns2, ELam(argsp, bodyp))
     }
     case ELet(isRec, defns, body) => {
-      val (ns1, bodyp) = renameE(bodyEnv, ns, body)
       val binders = bindersOf(defns)
-      val (ns2, bindersp) = ns.getNames(binders)
+      val (ns1, bindersp) = ns.getNames(binders)
       val bodyEnv = env ++ binders.zip(bindersp)
-      val (ns3, rhsp) = renameLetDefns(ns2, rhsOf(defns))
+      val (ns2, bodyp) = renameE(bodyEnv, ns1, body)
+      val rhsEnv = if (isRec) bodyEnv else env
+      val (ns3, rhsp) = renameLetDefns(rhsEnv, ns2, rhsOf(defns))
       (ns3, ELet(isRec, bindersp.zip(rhsp), body))
     }
     case ECase(e, alts)           => {
       val (ns1, ep) = renameE(env, ns, e)
+      val (ns2, altsp) = renameAlts(env, ns1, alts)
+      (ns2, ECase(ep, altsp))
     }
     case EConstr(t, a)            => throw new Exception("no constr ?")
   }
   
-  def renameLetDefns(ns : NameSupply, rhss : List[CoreExpr]) : (NameSupply, List[CoreExpr]) = {
-    renameE(rhsEnv)
-    ???
+  def renameLetDefns(rhsEnv : Map[Name, Name], ns : NameSupply, rhss : List[CoreExpr]) : (NameSupply, List[CoreExpr]) = rhss match {
+    case Nil => (ns, Nil)
+    case rhs::rhss => {
+      val (ns1, rhsp) = renameE(rhsEnv, ns, rhs)
+      val (ns2, rhssp) = renameLetDefns(rhsEnv, ns1, rhss)
+      (ns2, rhsp::rhssp)
+    }
   }
 
+  def renameAlts(env : Map[Name, Name], ns : NameSupply, alts : List[CoreAlt]) : (NameSupply, List[CoreAlt]) = alts match {
+    case Nil => (ns, Nil)
+    case (tag, vars, e)::alts => {
+      val (ns1, varsp) = ns.getNames(vars)
+      val bodyEnv = env ++ vars.zip(varsp)
+      val (ns2, ep) = renameE(bodyEnv, ns1, e)
+      val (ns3, altsp) = renameAlts(env, ns2, alts)
+      (ns3, (tag, varsp, ep)::altsp)
+    }
+  }
   
   def collectSCs(prog : CoreProgram) : CoreProgram = throw new Exception
 
