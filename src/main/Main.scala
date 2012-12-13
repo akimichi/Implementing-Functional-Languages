@@ -33,7 +33,8 @@ object Main {
     run("main = tail (Cons 2 Nil)")
     run("map f l = case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map (MkPair 3) list")
     run("ints n = (Cons n (ints (+ n 1))) ; main = head (tail (tail (tail (tail (tail (ints 0))))))")
-    run("map = \\f l . case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map (MkPair 3) list")
+    run("f = \\x . (+ x 1); main = (f 2)")
+    run("f x = let g = \\y . (+ y 1) in g (g x); main = (f 2)")
   }
 
 }

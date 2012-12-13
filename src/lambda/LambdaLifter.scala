@@ -134,9 +134,11 @@ object LambdaLifter {
   }
 
   def collectSCs(prog : CoreProgram) : CoreProgram = {
-    def collectOneSc(sc : CoreScDefn) : List[CoreScDefn] = {
-      val (scs, rhsp) = collectSCsE(sc._3)
-      (sc._1, sc._2, rhsp) :: scs
+    def collectOneSc(sc : CoreScDefn) : List[CoreScDefn] = sc match {
+      case (name, args, body) => {
+        val (scs, rhsp) = collectSCsE(body)
+        (name, args, rhsp) :: scs
+      }
     }
     prog.flatMap(collectOneSc)
   }
@@ -156,7 +158,7 @@ object LambdaLifter {
     case ELet(isRec, defns, body) => {
       val (rhsScs, defnsp) = collectSCsD(defns)
       val localScs = for ((name, ELam(args, body)) <- defnsp) yield (name, args, body)
-      val nonScsp = for ((name, rhs) <- defnsp if ! rhs.isInstanceOf[ELam[Name]]) yield (name, rhs)
+      val nonScsp = for ((name, rhs) <- defnsp if !rhs.isInstanceOf[ELam[Name]]) yield (name, rhs)
       val (bodyScs, bodyp) = collectSCsE(body)
       (rhsScs ++ bodyScs ++ localScs, mkELet(isRec, nonScsp, bodyp))
     }
@@ -186,6 +188,8 @@ object LambdaLifter {
     }
   }
 
-  def mkELet(isRec : Boolean, defns : List[CoreDefn], body : CoreExpr) : CoreExpr = ELet(isRec, defns, body)
+  def mkELet(isRec : Boolean, defns : List[CoreDefn], body : CoreExpr) : CoreExpr =
+    if (defns.isEmpty) body
+    else ELet(isRec, defns, body)
 
 }
