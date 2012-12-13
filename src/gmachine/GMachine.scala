@@ -13,14 +13,21 @@ import core.EVar
 import core.ECase
 import core.ELam
 import core.ELet
+import lambda.LambdaLifter.lambdaLift
+import core.PrettyPrinter.pprProgram
 
 object GMachine {
 
   val initialTiDump = Nil
 
-  def run(prog : String) : Unit = {
-    val code = compile(parse(prog))
-    print(prog + " ===> ")
+  def run(str : String) : Unit = {
+    println(str)
+    val prog = parse(str)
+    println(pprProgram(prog))
+    val llprog = lambdaLift(prog)
+    println(pprProgram(llprog))
+    val code = compile(llprog)
+    print(" ===> ")
     val result = code.eval
     println
   }

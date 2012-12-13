@@ -16,7 +16,7 @@ class NameSupply(supply : Stream[Int]) {
   
   private def innerGetNames(oldNames : List[Name], newNames : List[Name]) : (NameSupply, List[Name]) = oldNames match {
     case Nil => (this, newNames.reverse)
-    case n :: ns => new NameSupply(supply.tail).innerGetNames(ns, n + "_#_" + supply.head :: newNames)
+    case n :: ns => new NameSupply(supply.tail).innerGetNames(ns, n + "_#_" + supply.head :: newNames) // _#_ chosen because it is unparseable as source
   }
   
 }

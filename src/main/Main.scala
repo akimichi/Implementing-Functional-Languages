@@ -31,7 +31,9 @@ object Main {
     run("sublength x xs = + 1 (length xs); length l = case l of <1> -> 0; <2> x xs -> sublength x xs; main = length (Cons 3 (Cons True (Cons 4 Nil)))")
     run("main = head (Cons 2 Nil)")
     run("main = tail (Cons 2 Nil)")
-    run("map f l = case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map {Pack 0, 1} list")
+    run("map f l = case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map (MkPair 3) list")
+    run("ints n = (Cons n (ints (+ n 1))) ; main = head (tail (tail (tail (tail (tail (ints 0))))))")
+    run("map = \\f l . case l of <1> -> Nil; <2> x xs -> Cons (f x) (map f xs); list = Cons 3 (Cons 2 (Cons 1 Nil)); main = map (MkPair 3) list")
   }
 
 }

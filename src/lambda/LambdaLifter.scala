@@ -3,7 +3,7 @@ package lambda
 import core.AnnExpr.AnnProgram
 import core.AnnExpr.{ AnnExpr, AnnAlter }
 import core.ExprParser.parse
-import core.Expr.{ rhsOf, bindersOf, Name, CoreProgram, CoreExpr, CoreScDefn }
+import core.Expr.{ rhsOf, bindersOf, Name, CoreProgram, CoreExpr, CoreScDefn, CoreDefn }
 import core.PrettyPrinter.pprProgram
 import core.{ EVar, ENum, ELet, ELam, EConstr, ECase, EAp, AVar, ANum, ALet, ALam, AAp, AConstr }
 import core.Expr.CoreAlt
@@ -83,14 +83,14 @@ object LambdaLifter {
     })._2
 
   def renameE(env : Map[Name, Name], ns : NameSupply, e : CoreExpr) : (NameSupply, CoreExpr) = e match {
-    case ENum(k)                  => (ns, ENum(k))
-    case EVar(v)                  => (ns, EVar(env.getOrElse(v, v)))
-    case EAp(e1, e2)              => {
+    case ENum(k) => (ns, ENum(k))
+    case EVar(v) => (ns, EVar(env.getOrElse(v, v)))
+    case EAp(e1, e2) => {
       val (ns1, e1p) = renameE(env, ns, e1)
       val (ns2, e2p) = renameE(env, ns1, e2)
       (ns2, EAp(e1p, e2p))
     }
-    case ELam(args, body)         => {
+    case ELam(args, body) => {
       val (ns1, argsp) = ns.getNames(args)
       val envp = env ++ args.zip(argsp)
       val (ns2, bodyp) = renameE(envp, ns1, body)
@@ -103,36 +103,89 @@ object LambdaLifter {
       val (ns2, bodyp) = renameE(bodyEnv, ns1, body)
       val rhsEnv = if (isRec) bodyEnv else env
       val (ns3, rhsp) = renameLetDefns(rhsEnv, ns2, rhsOf(defns))
-      (ns3, ELet(isRec, bindersp.zip(rhsp), body))
+      (ns3, ELet(isRec, bindersp.zip(rhsp), bodyp))
     }
-    case ECase(e, alts)           => {
+    case ECase(e, alts) => {
       val (ns1, ep) = renameE(env, ns, e)
       val (ns2, altsp) = renameAlts(env, ns1, alts)
       (ns2, ECase(ep, altsp))
     }
-    case EConstr(t, a)            => throw new Exception("no constr ?")
+    case EConstr(t, a) => throw new Exception("no constr ?")
   }
-  
+
   def renameLetDefns(rhsEnv : Map[Name, Name], ns : NameSupply, rhss : List[CoreExpr]) : (NameSupply, List[CoreExpr]) = rhss match {
     case Nil => (ns, Nil)
-    case rhs::rhss => {
+    case rhs :: rhss => {
       val (ns1, rhsp) = renameE(rhsEnv, ns, rhs)
       val (ns2, rhssp) = renameLetDefns(rhsEnv, ns1, rhss)
-      (ns2, rhsp::rhssp)
+      (ns2, rhsp :: rhssp)
     }
   }
 
   def renameAlts(env : Map[Name, Name], ns : NameSupply, alts : List[CoreAlt]) : (NameSupply, List[CoreAlt]) = alts match {
     case Nil => (ns, Nil)
-    case (tag, vars, e)::alts => {
+    case (tag, vars, e) :: alts => {
       val (ns1, varsp) = ns.getNames(vars)
       val bodyEnv = env ++ vars.zip(varsp)
       val (ns2, ep) = renameE(bodyEnv, ns1, e)
       val (ns3, altsp) = renameAlts(env, ns2, alts)
-      (ns3, (tag, varsp, ep)::altsp)
+      (ns3, (tag, varsp, ep) :: altsp)
     }
   }
-  
-  def collectSCs(prog : CoreProgram) : CoreProgram = throw new Exception
+
+  def collectSCs(prog : CoreProgram) : CoreProgram = {
+    def collectOneSc(sc : CoreScDefn) : List[CoreScDefn] = {
+      val (scs, rhsp) = collectSCsE(sc._3)
+      (sc._1, sc._2, rhsp) :: scs
+    }
+    prog.flatMap(collectOneSc)
+  }
+
+  def collectSCsE(e : CoreExpr) : (List[CoreScDefn], CoreExpr) = e match {
+    case ENum(k) => (Nil, ENum(k))
+    case EVar(v) => (Nil, EVar(v))
+    case EAp(e1, e2) => {
+      val (scs1, e1p) = collectSCsE(e1)
+      val (scs2, e2p) = collectSCsE(e2)
+      (scs1 ++ scs2, EAp(e1p, e2p))
+    }
+    case ELam(args, body) => {
+      val (scs, bodyp) = collectSCsE(body)
+      (scs, ELam(args, bodyp))
+    }
+    case ELet(isRec, defns, body) => {
+      val (rhsScs, defnsp) = collectSCsD(defns)
+      val localScs = for ((name, ELam(args, body)) <- defnsp) yield (name, args, body)
+      val nonScsp = for ((name, rhs) <- defnsp if ! rhs.isInstanceOf[ELam[Name]]) yield (name, rhs)
+      val (bodyScs, bodyp) = collectSCsE(body)
+      (rhsScs ++ bodyScs ++ localScs, mkELet(isRec, nonScsp, bodyp))
+    }
+    case ECase(e, alts) => {
+      val (scsE, ep) = collectSCsE(e)
+      val (scsAlts, altsp) = collectSCsAlts(alts)
+      (scsE ++ scsAlts, ECase(ep, altsp))
+    }
+    case EConstr(t, a) => (Nil, EConstr(t, a))
+  }
+
+  def collectSCsAlts(alts : List[CoreAlt]) : (List[CoreScDefn], List[CoreAlt]) = alts match {
+    case Nil => (Nil, Nil)
+    case (tag, vars, rhs) :: alts => {
+      val (scsRhs, rhsp) = collectSCsE(rhs)
+      val (scs, altsp) = collectSCsAlts(alts)
+      (scs ++ scsRhs, (tag, vars, rhsp) :: altsp)
+    }
+  }
+
+  def collectSCsD(defns : List[CoreDefn]) : (List[CoreScDefn], List[CoreDefn]) = defns match {
+    case Nil => (Nil, Nil)
+    case (n, e) :: defns => {
+      val (scsRhs, ep) = collectSCsE(e)
+      val (scs, defnsp) = collectSCsD(defns)
+      (scs ++ scsRhs, (n, ep) :: defnsp)
+    }
+  }
+
+  def mkELet(isRec : Boolean, defns : List[CoreDefn], body : CoreExpr) : CoreExpr = ELet(isRec, defns, body)
 
 }
