@@ -1,2 +1,6 @@
 /bin
 .scala_dependencies
+.emacs.desktop*
+target
+project/target
+
