@@ -22,13 +22,13 @@ object GMachine {
 
   def run(str : String) : Unit = {
     println(str)
-    val prog = parse(str)
+    val prog:CoreProgram = parse(str)
     println(pprProgram(prog))
-    val llprog = lambdaLift(prog)
+    val llprog: CoreProgram = lambdaLift(prog)
     println(pprProgram(llprog))
-    val code = compile(llprog)
+    val code:GMState = compile(llprog)
     print(" ===> ")
-    val result = code.eval
+    val result : List[GMState] = code.eval
     println
   }
 
