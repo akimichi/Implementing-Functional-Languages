@@ -3,4 +3,5 @@
 .emacs.desktop*
 target
 project/target
+*~
 
