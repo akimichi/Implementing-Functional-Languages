@@ -28,6 +28,14 @@ class GMachineSpec extends FunSpec with ShouldMatchers with GMachine {
                          Pop(1),
                          Unwind))
       }
+      compileSC(ExprParser.parseSC("main = + 3 4"))should equal {
+        ("main",0,List(PushInt(4),
+                       PushInt(3),
+                       Add,
+                       Update(0),
+                       Pop(0),
+                       Unwind)) 
+      }
     }
     /*
     it("execute") {// (pending)
