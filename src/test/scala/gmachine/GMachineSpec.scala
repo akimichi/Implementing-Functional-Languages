@@ -6,9 +6,9 @@ import org.scalatest.{FunSpec, BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.matchers.ShouldMatchers
 
 
-class GMachineSpec extends FunSpec with ShouldMatchers {
+class GMachineSpec extends FunSpec with ShouldMatchers with GMachine {
   import main._
-  import GMachine._
+  // import GMachine._
   
   import core.Expr.{ CoreScDefn, CoreExpr, CoreAlt, CoreDefn, CoreProgram }
   import core.ExprParser
@@ -29,8 +29,12 @@ class GMachineSpec extends FunSpec with ShouldMatchers {
                          Unwind))
       }
     }
-    it("run") (pending)
-    // runMachine("main = S K K 3") should equal("")
+    /*
+    it("execute") {// (pending)
+      execute("main = + 3 4") should equal("")
+      // execute("main = S K K 3") should equal("")
+    }
+    */
   }
 }
       

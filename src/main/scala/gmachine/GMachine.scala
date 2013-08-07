@@ -16,10 +16,19 @@ import core.ELet
 import lambda.LambdaLifter.lambdaLift
 import core.PrettyPrinter.pprProgram
 
-object GMachine {
+trait GMachine { // object GMachine {
 
   val initialTiDump = Nil
 
+  def execute(str : String) : GMState = {
+  // def execute(str : String) : List[GMState] = {
+    val prog:CoreProgram = parse(str)
+    val llprog: CoreProgram = lambdaLift(prog)
+    val code:GMState = compile(llprog)
+    code
+    // val result : List[GMState] = code.eval
+    // result
+  }
   def run(str : String) : Unit = {
     println(str)
     val prog:CoreProgram = parse(str)

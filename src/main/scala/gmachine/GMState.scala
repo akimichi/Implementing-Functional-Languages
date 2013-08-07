@@ -4,7 +4,7 @@ import utils.Addr
 import utils.Heap
 import utils.Heap.hNull
 
-class GMState(code : List[Instruction], stack : List[Addr],
+case class GMState(code : List[Instruction], stack : List[Addr],
               dump : List[(List[Instruction], List[Addr])], heap : Heap[Node], globals : Map[String, Addr], stats : GMStats) {
 
   def eval : List[GMState] = {
