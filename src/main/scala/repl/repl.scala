@@ -10,15 +10,22 @@ import scala.util.parsing.combinator.RegexParsers
 
 
 /**
+ * A REPL that parses its input lines into a value (such as an abstract syntax
+ * tree), then processes them. Output is emitted to standard output.
+ */
+// trait ParsingREPL[T] extends StdoutEmitter
+// trait ParsingREPL[T] extends ParsingREPLBase[T] with StdoutEmitter
+
+/**
  * General support for applications that implement read-eval-print loops (REPLs).
  * Output is emitted using a configurable emitter.
  */
-trait REPLBase {
+trait REPLBase extends action {
 
   /**
    * The emitter to use to display any output.
    */
-  def emitter : Emitter
+  def emitter : action#Emitter
 
   /**
    * Whether lines consisting entirely of whitespace should be ignored or not.
@@ -60,7 +67,7 @@ trait REPLBase {
   /**
    * Define the prompt (default: `"> "`).
    */
-  def prompt () : String = "> "
+  def prompt () : String = "IFL> "
 
   /**
    * Process a user input line.
@@ -103,9 +110,3 @@ trait ParsingREPLBase[T] extends REPLBase with RegexParsers {
 
 }
 
-/**
- * A REPL that parses its input lines into a value (such as an abstract syntax
- * tree), then processes them. Output is emitted to standard output.
- */
-// trait ParsingREPL[T] extends StdoutEmitter
-trait ParsingREPL[T] extends ParsingREPLBase[T] with StdoutEmitter

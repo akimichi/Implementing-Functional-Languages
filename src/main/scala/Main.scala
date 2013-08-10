@@ -3,6 +3,7 @@ package main
 // import gmachine.GMachine.run
 import gmachine.GMachine
 
+/*
 object Main extends GMachine {
 
   def main(args : Array[String]) : Unit = {
@@ -39,3 +40,6 @@ object Main extends GMachine {
   }
 
 }
+
+*/
+
