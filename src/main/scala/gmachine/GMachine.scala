@@ -20,14 +20,11 @@ trait GMachine { // object GMachine {
 
   val initialTiDump = Nil
 
-  def execute(str : String) : GMState = {
-  // def execute(str : String) : List[GMState] = {
-    val prog:CoreProgram = parse(str)
-    val llprog: CoreProgram = lambdaLift(prog)
-    val code:GMState = compile(llprog)
-    code
-    // val result : List[GMState] = code.eval
-    // result
+  def compile(str : String) : GMState = {
+    val llprog: CoreProgram =  lambdaLift(parse(str))    // val llprog: CoreProgram =  (lambdaLift _ compose parse _)(str)
+    // val prog:CoreProgram = parse(str)
+    // val llprog: CoreProgram = lambdaLift(prog)
+    mkState(llprog)
   }
   def run(str : String) : Unit = {
     println(str)
@@ -35,13 +32,13 @@ trait GMachine { // object GMachine {
     println(pprProgram(prog))
     val llprog: CoreProgram = lambdaLift(prog)
     println(pprProgram(llprog))
-    val code:GMState = compile(llprog)
+    val code:GMState = mkState(llprog)
     print(" ===> ")
     val result : List[GMState] = code.eval
     println
   }
 
-  def compile(prog : CoreProgram) : GMState = {
+  def mkState(prog : CoreProgram) : GMState = {
     val (heap, globals) = buildInitialHeap(prog)
     new GMState(List(PushGlobal("main"), Eval, Print), Nil, Nil, heap, globals, gmStatsInitial)
   }

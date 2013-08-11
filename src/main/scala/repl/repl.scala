@@ -20,12 +20,18 @@ import scala.util.parsing.combinator.RegexParsers
  * General support for applications that implement read-eval-print loops (REPLs).
  * Output is emitted using a configurable emitter.
  */
-trait REPLBase extends action {
+trait REPL extends action {
 
+  type OUT
   /**
    * The emitter to use to display any output.
    */
-  def emitter : action#Emitter
+  def emitter : action#Emitter[OUT]
+
+  /**
+   * Process a user input line.
+   */
+  def processline (line : String) : Unit
 
   /**
    * Whether lines consisting entirely of whitespace should be ignored or not.
@@ -33,46 +39,16 @@ trait REPLBase extends action {
    */
   def ignoreWhitespaceLines : Boolean = true
 
-  /**
-   * Read lines from the console and pass non-null ones to `processline`.
-   * If `ignoreWhitespaceLines` is true, do not pass lines that contain
-   * just whitespace, otherwise do. Continue until `processline` returns
-   * false. Call `setup` before entering the loop and call `prompt` each
-   * time input is about to be read.  The command-line arguments are
-   * passed to the `setup` method.
-   */
-  /*
-   def main (args : Array[String]) {
-
-     // If the setup works, read lines and process them
-     if (setup (args)) {
-     var cont = true
-     while (cont) {
-     val line = JLineConsole.readLine (prompt)
-     if (line == null) {
-     emitter.emitln
-     cont = false
-     } else if (!ignoreWhitespaceLines || (line.trim.length != 0))
-     processline (line)
-     }
-     }
-     }
-     */
 
   /**
    * Carry out setup processing for the REPL.  Default: do nothing.
    */
-  def setup (args : Array[String]) : Boolean = true
+  def setup (args : Seq[String]) : Boolean = true
 
   /**
    * Define the prompt (default: `"> "`).
    */
   def prompt () : String = "IFL> "
-
-  /**
-   * Process a user input line.
-   */
-  def processline (line : String) : Unit
 
 }
 
@@ -81,14 +57,15 @@ trait REPLBase extends action {
  * A REPL that parses its input lines into a value (such as an abstract syntax
  * tree), then processes them. Output is emitted using a configurable emitter.
  */
-trait ParsingREPLBase[T] extends REPLBase with RegexParsers {
+/*
+trait ParsingREPLBase[T] extends REPL with RegexParsers {
 
   /**
    * Process a user input line by parsing it to get a value of type `T`,
    * then passing it to the `process` method.
    */
   def processline (line : String) {
-    parseAll (start, line) match {
+    parseAll (entry, line) match {
       case Success (e, in) if in.atEnd =>
         process (e)
       case Success (_, in) =>
@@ -101,7 +78,7 @@ trait ParsingREPLBase[T] extends REPLBase with RegexParsers {
   /**
    * The parser to use to convert user input lines into values.
    */
-  def start : Parser[T]
+  def entry : Parser[T]
 
   /**
    * Process a user input value.
@@ -109,4 +86,4 @@ trait ParsingREPLBase[T] extends REPLBase with RegexParsers {
   def process (t : T) : Unit
 
 }
-
+*/

@@ -10,18 +10,26 @@ import repl._
  *
  */
 
-// trait REPL extends REPLBase with GMachine {
-// }
 
-object Console extends GMachine with REPLBase {
+object Console extends GMachine with REPL {
+  type OUT = Unit
 
   def processline (line : String) : Unit = {
-    val code = execute(line)
+    val code = compile(line)
     val result:List[GMState] = code.eval
     emitter.emitln(result.last.stack)
   }
-  def emitter  = new Emitter
+  def emitter  = new StdoutEmitter
+  
    
+  /**
+   * Read lines from the console and pass non-null ones to `processline`.
+   * If `ignoreWhitespaceLines` is true, do not pass lines that contain
+   * just whitespace, otherwise do. Continue until `processline` returns
+   * false. Call `setup` before entering the loop and call `prompt` each
+   * time input is about to be read.  The command-line arguments are
+   * passed to the `setup` method.
+   */
   def main(args : Array[String]) : Unit = {
     // If the setup works, read lines and process them
     if (setup (args)) {
@@ -32,7 +40,6 @@ object Console extends GMachine with REPLBase {
           emitter.emitln
           cont = false
         } else if (!ignoreWhitespaceLines || (line.trim.length != 0))
-          // emitter.emitln("processline")
           processline (line)
       }
     }

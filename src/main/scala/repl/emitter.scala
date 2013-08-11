@@ -6,40 +6,48 @@ trait action {
    * is sent to the standard output.  Subclass this if you need it to go
    * somewhere else.
    */
-  class Emitter {
-
+  trait Emitter[T] {
     /**
      * Emit `any`.
      */
-    def emit (any : Any) {
-      print (any.toString)
-    }
-
+    def emit (any : Any) : T
     /**
      * Emit `any` and start a new line.
      */
-    def emitln (any : Any) {
-      println (any.toString)
-    }
+    def emitln (any : Any) : T
 
     /**
      * Emit a new line.
      */
-    def emitln {
-      println
-    }
+    def emitln : T
+
 
   }
 
   /**
    * General support for mixing in an emitter that sends to standard output.
    */
-  trait StdoutEmitter {
+  class StdoutEmitter extends Emitter[Unit] {
+    /**
+     * Emit `any`.
+     */
+    def emit (any : Any) : Unit = {
+      print (any.toString)
+    }
 
     /**
-     * An emitter for standard output.
+     * Emit `any` and start a new line.
      */
-    val emitter = new Emitter
+    def emitln (any : Any)  : Unit = {
+      println (any.toString)
+    }
+
+    /**
+     * Emit a new line.
+     */
+    def emitln : Unit = {
+      println
+    }
 
   }
 
@@ -47,19 +55,29 @@ trait action {
    * An emitter that records the output in a string that can be accessed
    * via the result method.
    */
-  class StringEmitter extends Emitter {
-    val b = new StringBuilder
-    override def emit (any : Any) = b.append (any.toString)
-    override def emitln (any : Any) = b.append (any.toString).append ('\n')
-    override def emitln () = b.append ('\n')
-    def clear () = b.clear
-    def result () = b.result
+  class StringEmitter extends Emitter[String] {
+    val builder = new StringBuilder
+    def emit(any : Any) : String = {
+      builder.append(any.toString)
+      builder.result
+    }
+    def emitln (any : Any) = {
+      builder.append (any.toString).append ('\n')
+      builder.result
+    }
+    def emitln () = {
+      builder.append ('\n')
+      builder.result
+    }
+    def clear () = builder.clear
+    def result () = builder.result
   }
 
   /**
    * A string emitter that also provides a `close` method to send the
    * result to the named UTF-8 encoded file.
    */
+  /*
   class FileEmitter (filename : String) extends StringEmitter {
     import org.kiama.util.IO.filewriter
     
@@ -69,4 +87,5 @@ trait action {
       out.close ()
     }
   }
+  */
 }
